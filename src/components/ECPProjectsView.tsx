@@ -39,6 +39,7 @@ export const ECPProjectsView: React.FC<ECPProjectsViewProps> = ({
   const [stageFilter, setStageFilter] = useState<string>(initialStageFilter || 'ALL');
   const [customerTypeFilter, setCustomerTypeFilter] = useState<'ALL' | 'B2C' | 'B2B'>(initialCustomerTypeFilter || 'ALL');
   const isLeadUser = currentUser?.role === 'LEAD';
+  const isRegistrationUser = currentUser?.role === 'REGISTRATION';
 
   React.useEffect(() => {
     if (initialStageFilter !== undefined) {
@@ -412,25 +413,20 @@ export const ECPProjectsView: React.FC<ECPProjectsViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto text-xs">
-            {/* Quick Stage Filters (hidden for Lead user) */}
-            {!isLeadUser && (
+            {/* Quick Type Filters for Registration Users, Stage Filters for Others */}
+            {isRegistrationUser ? (
               <div className="flex bg-slate-200/60 p-1 rounded-xl overflow-x-auto shrink-0">
                 {[
                   { id: 'ALL', label: 'All' },
-                  { id: 'IN_DOCS', label: 'Docs' },
-                  { id: 'REGISTRATION_1', label: 'Reg 1' },
-                  { id: 'NET_METERING', label: 'Net Metering' },
-                  { id: 'REGISTRATION_2', label: 'Reg 2' },
-                  { id: 'DISPATCH', label: 'Dispatch' },
-                  { id: 'INSTALLATION', label: 'Installation' },
-                  { id: 'COMPLETED', label: 'Completed' },
+                  { id: 'B2B', label: 'B2B' },
+                  { id: 'B2C', label: 'B2C' },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setStageFilter(tab.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all ${
-                      stageFilter === tab.id
+                    onClick={() => setCustomerTypeFilter(tab.id as 'ALL' | 'B2B' | 'B2C')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                      customerTypeFilter === tab.id
                         ? 'bg-white text-slate-900 shadow-xs font-bold'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
@@ -439,18 +435,48 @@ export const ECPProjectsView: React.FC<ECPProjectsViewProps> = ({
                   </button>
                 ))}
               </div>
+            ) : (
+              !isLeadUser && (
+                <div className="flex bg-slate-200/60 p-1 rounded-xl overflow-x-auto shrink-0">
+                  {[
+                    { id: 'ALL', label: 'All' },
+                    { id: 'IN_DOCS', label: 'Docs' },
+                    { id: 'REGISTRATION_1', label: 'Reg 1' },
+                    { id: 'NET_METERING', label: 'Net Metering' },
+                    { id: 'REGISTRATION_2', label: 'Reg 2' },
+                    { id: 'DISPATCH', label: 'Dispatch' },
+                    { id: 'INSTALLATION', label: 'Installation' },
+                    { id: 'COMPLETED', label: 'Completed' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setStageFilter(tab.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all ${
+                        stageFilter === tab.id
+                          ? 'bg-white text-slate-900 shadow-xs font-bold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              )
             )}
 
-            {/* Customer Type Filter */}
-            <select
-              value={customerTypeFilter}
-              onChange={(e) => setCustomerTypeFilter(e.target.value as any)}
-              className="bg-white border border-slate-300 text-slate-700 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 shadow-xs shrink-0 font-medium"
-            >
-              <option value="ALL">All Types (B2C & B2B)</option>
-              <option value="B2C">B2C Only</option>
-              <option value="B2B">B2B Only</option>
-            </select>
+            {/* Customer Type Filter (hidden for registration users since they have the pill filter) */}
+            {!isRegistrationUser && (
+              <select
+                value={customerTypeFilter}
+                onChange={(e) => setCustomerTypeFilter(e.target.value as any)}
+                className="bg-white border border-slate-300 text-slate-700 rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-blue-500 shadow-xs shrink-0 font-medium"
+              >
+                <option value="ALL">All Types (B2C & B2B)</option>
+                <option value="B2C">B2C Only</option>
+                <option value="B2B">B2B Only</option>
+              </select>
+            )}
 
             {(stageFilter !== 'ALL' || customerTypeFilter !== 'ALL') && (
               <button

@@ -56,10 +56,23 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
   onOpenLeadDetails,
   initialTab = 'action_required',
 }) => {
+  const isInstallationManager = currentUser?.role === 'INSTALLATION_MANAGER';
+  const isInstallationMember = currentUser?.role === 'INSTALLATION_MEMBER';
+
   // Navigation State
+  const getInitialActiveTab = () => {
+    if (isInstallationManager && (initialTab === 'action_required' || initialTab === 'all_queue')) {
+      return 'site_visits';
+    }
+    if (isInstallationMember && initialTab === 'action_required') {
+      return 'site_visits';
+    }
+    return initialTab;
+  };
+
   const [activeTab, setActiveTab] = useState<
     'action_required' | 'site_visits' | 'installations' | 'net_metering' | 'team_workload' | 'all_queue'
-  >(initialTab);
+  >(getInitialActiveTab());
 
   // Data States
   const [metrics, setMetrics] = useState<InstallationMetrics | null>(null);
@@ -73,8 +86,15 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('ALL');
-  const [siteVisitSubFilter, setSiteVisitSubFilter] = useState<'ALL' | 'PENDING' | 'ASSIGNED' | 'COMPLETED'>('ALL');
-  const [installationSubFilter, setInstallationSubFilter] = useState<'ALL' | 'UNASSIGNED' | 'ASSIGNED' | 'DELAYED'>('ALL');
+  const [siteVisitSubFilter, setSiteVisitSubFilter] = useState<'ALL' | 'PENDING' | 'ASSIGNED' | 'COMPLETED'>(
+    isInstallationManager ? 'PENDING' : 'ALL'
+  );
+  const [installationSubFilter, setInstallationSubFilter] = useState<'ALL' | 'UNASSIGNED' | 'ASSIGNED' | 'DELAYED'>(
+    isInstallationManager ? 'UNASSIGNED' : 'ALL'
+  );
+  const [netMeteringSubFilter, setNetMeteringSubFilter] = useState<'ALL' | 'UNASSIGNED' | 'ASSIGNED' | 'READY'>(
+    isInstallationManager ? 'UNASSIGNED' : 'ALL'
+  );
 
   // Mobile UX States
   const [mobileActionSubFilter, setMobileActionSubFilter] = useState<'ALL' | 'SURVEYS' | 'INSTALLATIONS' | 'NET_METERING' | 'DELAYED'>('ALL');
@@ -83,6 +103,23 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
   const toggleSection = (key: string) => {
     setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+
+  // Sync initialTab when changed externally
+  useEffect(() => {
+    if (isInstallationManager && (initialTab === 'action_required' || initialTab === 'all_queue')) {
+      setActiveTab('site_visits');
+      setSiteVisitSubFilter('PENDING');
+    } else if (isInstallationMember && initialTab === 'action_required') {
+      setActiveTab('site_visits');
+    } else if (initialTab) {
+      setActiveTab(initialTab);
+      if (isInstallationManager) {
+        if (initialTab === 'site_visits') setSiteVisitSubFilter('PENDING');
+        if (initialTab === 'installations') setInstallationSubFilter('UNASSIGNED');
+        if (initialTab === 'net_metering') setNetMeteringSubFilter('UNASSIGNED');
+      }
+    }
+  }, [initialTab, isInstallationManager, isInstallationMember]);
 
   // Modals State
   const [selectedSiteVisitForAssign, setSelectedSiteVisitForAssign] = useState<SiteVisit | null>(null);
@@ -163,7 +200,7 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
     } else if (activeTab === 'site_visits') {
       result = result.filter((item) => item.work_type === 'SITE_VISIT');
       if (siteVisitSubFilter === 'PENDING') {
-        result = result.filter((item) => item.current_status === 'PENDING_ASSIGNMENT');
+        result = result.filter((item) => item.current_status === 'PENDING_ASSIGNMENT' || !item.assigned_user_id);
       } else if (siteVisitSubFilter === 'ASSIGNED') {
         result = result.filter((item) => item.current_status === 'ASSIGNED');
       } else if (siteVisitSubFilter === 'COMPLETED') {
@@ -180,6 +217,13 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
       }
     } else if (activeTab === 'net_metering') {
       result = result.filter((item) => item.work_type === 'NET_METERING');
+      if (netMeteringSubFilter === 'UNASSIGNED') {
+        result = result.filter((item) => !item.assigned_user_id);
+      } else if (netMeteringSubFilter === 'ASSIGNED') {
+        result = result.filter((item) => !!item.assigned_user_id);
+      } else if (netMeteringSubFilter === 'READY') {
+        result = result.filter((item) => item.can_complete);
+      }
     }
 
     // Filter by Assignee
@@ -205,7 +249,7 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
     }
 
     return result;
-  }, [queueItems, activeTab, assigneeFilter, searchQuery, siteVisitSubFilter, installationSubFilter]);
+  }, [queueItems, activeTab, assigneeFilter, searchQuery, siteVisitSubFilter, installationSubFilter, netMeteringSubFilter]);
 
   // Dynamic counts for tabs & sub-filters
   const counts = useMemo(() => {
@@ -225,6 +269,8 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
       instDelayed: instItems.filter((i) => i.is_delayed).length,
 
       nmAll: nmItems.length,
+      nmUnassigned: nmItems.filter((i) => !i.assigned_user_id).length,
+      nmAssigned: nmItems.filter((i) => !!i.assigned_user_id).length,
       nmReady: nmItems.filter((i) => i.can_complete).length,
     };
   }, [queueItems]);
@@ -308,46 +354,48 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
       {/* 2. Operational Control Cards */}
 
       {/* 2. Operational Control Cards - Stacked Grid (No scrolling) */}
-      <div className={`grid grid-cols-2 sm:grid-cols-3 ${isManager ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-2 sm:gap-3`}>
-        {/* Card 1: Action Required */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('action_required');
-            setMobileActionSubFilter('ALL');
-          }}
-          className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all ${
-            activeTab === 'action_required'
-              ? 'bg-amber-500/10 border-amber-400 ring-2 ring-amber-400/20 shadow-xs'
-              : 'bg-white border-slate-200/80 hover:border-slate-300'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-1 sm:mb-2">
-            <span className="text-[11px] sm:text-xs font-semibold text-slate-600 truncate">
-              {isManager ? 'Action Required' : 'My Tasks'}
-            </span>
-            <div className="p-1 sm:p-1.5 rounded-lg bg-amber-50 text-amber-600 shrink-0">
-              <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+      <div className={`grid grid-cols-2 sm:grid-cols-2 ${isInstallationManager ? 'lg:grid-cols-4' : isInstallationMember ? 'sm:grid-cols-3 lg:grid-cols-3' : isManager ? 'lg:grid-cols-6' : 'lg:grid-cols-4'} gap-2 sm:gap-3`}>
+        {/* Card 1: Action Required / My Tasks (Hidden for Installation Manager & Installation Member users) */}
+        {!isInstallationManager && !isInstallationMember && (
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('action_required');
+              setMobileActionSubFilter('ALL');
+            }}
+            className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all ${
+              activeTab === 'action_required'
+                ? 'bg-amber-500/10 border-amber-400 ring-2 ring-amber-400/20 shadow-xs'
+                : 'bg-white border-slate-200/80 hover:border-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <span className="text-[11px] sm:text-xs font-semibold text-slate-600 truncate">
+                {isManager ? 'Action Required' : 'My Tasks'}
+              </span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-amber-50 text-amber-600 shrink-0">
+                <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </div>
             </div>
-          </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-            {isManager
-              ? (metrics?.action_required_total ?? (counts.svUnassigned + counts.instUnassigned + counts.nmReady + actionRequiredGroups.delayedItems.length))
-              : (actionRequiredGroups.technicianAssignedSurveys.length + actionRequiredGroups.technicianAssignedInstallations.length + actionRequiredGroups.readyNetMetering.length)}
-          </div>
-          <p className="text-[10px] sm:text-[11px] text-amber-700 font-medium mt-1 truncate">
-            {isManager
-              ? `${counts.svUnassigned} surveys • ${counts.instUnassigned} ECPs`
-              : `${actionRequiredGroups.technicianAssignedSurveys.length} survey(s) • ${actionRequiredGroups.technicianAssignedInstallations.length} ECP(s)`}
-          </p>
-        </button>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+              {isManager
+                ? (metrics?.action_required_total ?? (counts.svUnassigned + counts.instUnassigned + counts.nmReady + actionRequiredGroups.delayedItems.length))
+                : (actionRequiredGroups.technicianAssignedSurveys.length + actionRequiredGroups.technicianAssignedInstallations.length + actionRequiredGroups.readyNetMetering.length)}
+            </div>
+            <p className="text-[10px] sm:text-[11px] text-amber-700 font-medium mt-1 truncate">
+              {isManager
+                ? `${counts.svUnassigned} surveys • ${counts.instUnassigned} ECPs`
+                : `${actionRequiredGroups.technicianAssignedSurveys.length} survey(s) • ${actionRequiredGroups.technicianAssignedInstallations.length} ECP(s)`}
+            </p>
+          </button>
+        )}
 
         {/* Card 2: Site Visits */}
         <button
           type="button"
           onClick={() => {
             setActiveTab('site_visits');
-            setSiteVisitSubFilter('ALL');
+            setSiteVisitSubFilter(isInstallationManager ? 'PENDING' : 'ALL');
           }}
           className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all ${
             activeTab === 'site_visits'
@@ -378,7 +426,7 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
           type="button"
           onClick={() => {
             setActiveTab('installations');
-            setInstallationSubFilter('ALL');
+            setInstallationSubFilter(isInstallationManager ? 'UNASSIGNED' : 'ALL');
           }}
           className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all ${
             activeTab === 'installations'
@@ -407,7 +455,10 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
         {/* Card 4: Net Metering */}
         <button
           type="button"
-          onClick={() => setActiveTab('net_metering')}
+          onClick={() => {
+            setActiveTab('net_metering');
+            setNetMeteringSubFilter(isInstallationManager ? 'UNASSIGNED' : 'ALL');
+          }}
           className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all ${
             activeTab === 'net_metering'
               ? 'bg-emerald-50/70 border-emerald-400 ring-2 ring-emerald-400/20 shadow-xs'
@@ -424,7 +475,9 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
             {counts.nmAll}
           </div>
           <p className="text-[10px] sm:text-[11px] text-emerald-700 font-medium mt-1 truncate">
-            {counts.nmReady} meter swaps ready
+            {isManager
+              ? `${counts.nmUnassigned} unassigned • ${counts.nmReady} ready`
+              : `${counts.nmReady} meter swaps ready`}
           </p>
         </button>
 
@@ -433,7 +486,7 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
           <button
             type="button"
             onClick={() => setActiveTab('team_workload')}
-            className={`col-span-2 sm:col-span-1 lg:col-span-1 p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all ${
+            className={`${isInstallationManager ? 'col-span-1 sm:col-span-1 lg:col-span-1' : 'col-span-2 sm:col-span-1 lg:col-span-1'} p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all ${
               activeTab === 'team_workload'
                 ? 'bg-purple-50/70 border-purple-400 ring-2 ring-purple-400/20 shadow-xs'
                 : 'bg-white border-slate-200/80 hover:border-slate-300'
@@ -453,58 +506,86 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
             </p>
           </button>
         )}
+
+        {/* Card 6: All Operations Queue (Manager Only, Hidden for Installation Manager user) */}
+        {!isInstallationManager && isManager && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('all_queue')}
+            className={`col-span-2 sm:col-span-1 lg:col-span-1 p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-left transition-all ${
+              activeTab === 'all_queue'
+                ? 'bg-slate-100 border-slate-500 ring-2 ring-slate-400/20 shadow-xs'
+                : 'bg-white border-slate-200/80 hover:border-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <span className="text-[11px] sm:text-xs font-semibold text-slate-600 truncate">All Operations</span>
+              <div className="p-1 sm:p-1.5 rounded-lg bg-slate-100 text-slate-600 shrink-0">
+                <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </div>
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+              {queueItems.length}
+            </div>
+            <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium mt-1 truncate">
+              Unified queue
+            </p>
+          </button>
+        )}
       </div>
 
-      {/* 3. Operational Tab Navigation (hidden on mobile since top swipeable chips handle tabs) */}
-      <div className="hidden sm:flex items-center justify-between border-b border-slate-200/80 pb-px overflow-x-auto">
-        <div className="flex items-center gap-1.5 sm:gap-2 min-w-max">
-          {(isManager
-            ? [
-                { id: 'action_required', label: 'Action Required', icon: AlertTriangle, count: counts.svUnassigned + counts.instUnassigned + counts.nmReady + actionRequiredGroups.delayedItems.length },
-                { id: 'site_visits', label: 'Site Visits (Surveys)', icon: Compass, count: counts.svAll },
-                { id: 'installations', label: 'Installations (ECPs)', icon: Hammer, count: counts.instAll },
-                { id: 'net_metering', label: 'Net Metering', icon: Gauge, count: counts.nmAll },
-                { id: 'team_workload', label: 'Team Workload', icon: Users, count: workload.length },
-                { id: 'all_queue', label: 'All Operations Queue', icon: Layers, count: queueItems.length },
-              ]
-            : [
-                { id: 'action_required', label: 'My Action Tasks', icon: AlertTriangle, count: actionRequiredGroups.technicianAssignedSurveys.length + actionRequiredGroups.technicianAssignedInstallations.length + actionRequiredGroups.readyNetMetering.length },
-                { id: 'site_visits', label: 'My Site Surveys', icon: Compass, count: counts.svAssigned },
-                { id: 'installations', label: 'My Installations (ECPs)', icon: Hammer, count: counts.instAssigned },
-                { id: 'net_metering', label: 'Net Metering', icon: Gauge, count: counts.nmAll },
-              ]
-          ).map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-semibold transition-all border-b-2 ${
-                  isActive
-                    ? 'border-amber-600 text-amber-700 bg-amber-50/50'
-                    : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-                {tab.count !== undefined && tab.count > 0 && (
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      tab.id === 'action_required'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+      {/* 3. Operational Tab Navigation (hidden on mobile, and removed for Installation Manager and Member users) */}
+      {!isInstallationManager && !isInstallationMember && (
+        <div className="hidden sm:flex items-center justify-between border-b border-slate-200/80 pb-px overflow-x-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-max">
+            {(isManager
+              ? [
+                  { id: 'action_required', label: 'Action Required', icon: AlertTriangle, count: counts.svUnassigned + counts.instUnassigned + counts.nmReady + actionRequiredGroups.delayedItems.length },
+                  { id: 'site_visits', label: 'Site Visits (Surveys)', icon: Compass, count: counts.svAll },
+                  { id: 'installations', label: 'Installations (ECPs)', icon: Hammer, count: counts.instAll },
+                  { id: 'net_metering', label: 'Net Metering', icon: Gauge, count: counts.nmAll },
+                  { id: 'team_workload', label: 'Team Workload', icon: Users, count: workload.length },
+                  { id: 'all_queue', label: 'All Operations Queue', icon: Layers, count: queueItems.length },
+                ]
+              : [
+                  { id: 'action_required', label: 'My Action Tasks', icon: AlertTriangle, count: actionRequiredGroups.technicianAssignedSurveys.length + actionRequiredGroups.technicianAssignedInstallations.length + actionRequiredGroups.readyNetMetering.length },
+                  { id: 'site_visits', label: 'My Site Surveys', icon: Compass, count: counts.svAssigned },
+                  { id: 'installations', label: 'My Installations (ECPs)', icon: Hammer, count: counts.instAssigned },
+                  { id: 'net_metering', label: 'Net Metering', icon: Gauge, count: counts.nmAll },
+                ]
+            ).map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-semibold transition-all border-b-2 ${
+                    isActive
+                      ? 'border-amber-600 text-amber-700 bg-amber-50/50'
+                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                  {tab.count !== undefined && tab.count > 0 && (
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        tab.id === 'action_required'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 4. Filter & Search Controls (Shown on queue views) */}
       {activeTab !== 'team_workload' && (
@@ -527,7 +608,7 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
               <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl">
                 {[
                   { id: 'ALL', label: 'All', count: counts.svAll },
-                  { id: 'PENDING', label: 'Unassigned', count: counts.svUnassigned },
+                  ...(isInstallationMember ? [] : [{ id: 'PENDING', label: 'Unassigned', count: counts.svUnassigned }]),
                   { id: 'ASSIGNED', label: 'In Progress', count: counts.svAssigned },
                   { id: 'COMPLETED', label: 'Completed', count: counts.svCompleted },
                 ].map((sub) => (
@@ -552,7 +633,7 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
               <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl">
                 {[
                   { id: 'ALL', label: 'All', count: counts.instAll },
-                  { id: 'UNASSIGNED', label: 'Unassigned', count: counts.instUnassigned },
+                  ...(isInstallationMember ? [] : [{ id: 'UNASSIGNED', label: 'Unassigned', count: counts.instUnassigned }]),
                   { id: 'ASSIGNED', label: 'In Execution', count: counts.instAssigned },
                   { id: 'DELAYED', label: 'Delayed', count: counts.instDelayed },
                 ].map((sub) => (
@@ -562,6 +643,31 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
                     onClick={() => setInstallationSubFilter(sub.id as any)}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1 ${
                       installationSubFilter === sub.id
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>{sub.label}</span>
+                    <span className="text-[10px] text-slate-400">({sub.count})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'net_metering' && (
+              <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                {[
+                  { id: 'ALL', label: 'All', count: counts.nmAll },
+                  ...(isInstallationMember ? [] : [{ id: 'UNASSIGNED', label: 'Unassigned', count: counts.nmUnassigned }]),
+                  { id: 'ASSIGNED', label: 'Assigned', count: counts.nmAssigned },
+                  { id: 'READY', label: 'Ready to Close', count: counts.nmReady },
+                ].map((sub) => (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => setNetMeteringSubFilter(sub.id as any)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1 ${
+                      netMeteringSubFilter === sub.id
                         ? 'bg-white text-slate-900 shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
@@ -1605,7 +1711,9 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
                     <th className="py-3 px-4">ECP # & Customer</th>
                     <th className="py-3 px-4">{isManager ? 'Capacity & Value' : 'System Capacity'}</th>
                     <th className="py-3 px-4">Assigned Crew Lead</th>
-                    <th className="py-3 px-4">Current Task / Requirement</th>
+                    {!isInstallationManager && (
+                      <th className="py-3 px-4">Current Task / Requirement</th>
+                    )}
                     <th className="py-3 px-4">5 Photos Status</th>
                     <th className="py-3 px-4">Days in Stage</th>
                     <th className="py-3 px-4">SLA Status</th>
@@ -1663,9 +1771,11 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
                           <span className="text-slate-400 italic text-[11px]">Unassigned</span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-700 max-w-xs">
-                        <p className="line-clamp-2">{item.pending_requirement}</p>
-                      </td>
+                      {!isInstallationManager && (
+                        <td className="py-3.5 px-4 text-slate-700 max-w-xs">
+                          <p className="line-clamp-2">{item.pending_requirement}</p>
+                        </td>
+                      )}
                       <td className="py-3.5 px-4">
                         {item.has_all_photos ? (
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
@@ -1968,7 +2078,7 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
                         type="button"
                         onClick={() => {
                           setAssigneeFilter(staff.user_id);
-                          setActiveTab('all_queue');
+                          setActiveTab(isInstallationManager ? 'installations' : 'all_queue');
                         }}
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-[11px] transition-colors"
                       >
@@ -2107,33 +2217,35 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
 
       {/* Sticky Mobile Bottom Navigation Bar (sm:hidden) */}
       <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 shadow-lg flex items-center justify-around pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('action_required');
-            setMobileActionSubFilter('ALL');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors ${
-            activeTab === 'action_required' ? 'text-amber-600 font-bold' : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <div className="relative">
-            <AlertTriangle className="w-4 h-4" />
-            {(counts.svUnassigned + counts.instUnassigned + counts.nmReady + actionRequiredGroups.delayedItems.length) > 0 && (
-              <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full text-[9px] font-black bg-amber-500 text-white">
-                {counts.svUnassigned + counts.instUnassigned + counts.nmReady + actionRequiredGroups.delayedItems.length}
-              </span>
-            )}
-          </div>
-          <span className="text-[10px]">Actions</span>
-        </button>
+        {!isInstallationManager && (
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('action_required');
+              setMobileActionSubFilter('ALL');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors ${
+              activeTab === 'action_required' ? 'text-amber-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className="relative">
+              <AlertTriangle className="w-4 h-4" />
+              {(counts.svUnassigned + counts.instUnassigned + counts.nmReady + actionRequiredGroups.delayedItems.length) > 0 && (
+                <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full text-[9px] font-black bg-amber-500 text-white">
+                  {counts.svUnassigned + counts.instUnassigned + counts.nmReady + actionRequiredGroups.delayedItems.length}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px]">Actions</span>
+          </button>
+        )}
 
         <button
           type="button"
           onClick={() => {
             setActiveTab('site_visits');
-            setSiteVisitSubFilter('ALL');
+            setSiteVisitSubFilter(isInstallationManager ? 'PENDING' : 'ALL');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors ${
@@ -2155,7 +2267,7 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
           type="button"
           onClick={() => {
             setActiveTab('installations');
-            setInstallationSubFilter('ALL');
+            setInstallationSubFilter(isInstallationManager ? 'UNASSIGNED' : 'ALL');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors ${
@@ -2177,6 +2289,7 @@ export const InstallationManagerWorkspace: React.FC<InstallationManagerWorkspace
           type="button"
           onClick={() => {
             setActiveTab('net_metering');
+            setNetMeteringSubFilter(isInstallationManager ? 'UNASSIGNED' : 'ALL');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors ${

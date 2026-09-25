@@ -801,7 +801,7 @@ export class AccountsService {
 
     const leadRes = await db.query(
       `SELECT l.id, l.customer_name, l.customer_type, l.owner_id, l.created_by,
-              u.name as lead_owner_name, u.email as lead_owner_email
+              u.name as lead_owner_name, u.username as lead_owner_username
        FROM leads l
        LEFT JOIN users u ON (l.owner_id = u.id OR l.created_by = u.id)
        WHERE l.id = $1`,
@@ -815,11 +815,11 @@ export class AccountsService {
 
     const actionNote = `[Accounts Return - ${params.reason}]: ${params.remarks}`;
 
-    // Update lead team to LEAD, action_required = 1, and dispatch_status = 'PENDING_ADVANCE'
+    // Update lead team to LEAD, action_required = true, and dispatch_status = 'PENDING_ADVANCE'
     await db.query(
       `UPDATE leads
        SET current_team = 'LEAD',
-           action_required = 1,
+           action_required = true,
            action_required_note = $1,
            dispatch_status = 'PENDING_ADVANCE'
        WHERE id = $2`,

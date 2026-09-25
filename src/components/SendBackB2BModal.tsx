@@ -118,30 +118,30 @@ export function SendBackB2BModal({ lead, currentUser, onClose, onSuccess }: Send
   const shortfall = Math.max(0, lead.b2b_upfront_required - lead.total_received);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2.5 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 bg-amber-500/5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center border border-amber-500/20">
-              <RotateCcw className="w-5 h-5" />
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-amber-500/5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center border border-amber-500/20 shrink-0">
+              <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Return B2B Case to Lead Team</h2>
-              <p className="text-xs text-slate-500">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">Return B2B Case to Lead Team</h2>
+              <p className="text-[11px] sm:text-xs text-slate-500">
                 Lead #{lead.lead_number} • {lead.customer_name}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
           {error && (
             <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2.5">
               <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />

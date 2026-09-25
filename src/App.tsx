@@ -103,6 +103,23 @@ export default function App() {
     }
   }, [currentUser, loadWorkspaceData]);
 
+  // Ensure Dispatch Team role stays on its designated workspace screen
+  useEffect(() => {
+    if (currentUser?.role === 'DISPATCH' && activeTab !== 'dispatch') {
+      setActiveTab('dispatch');
+    }
+  }, [currentUser?.role, activeTab]);
+
+  // Ensure Accounts Team role stays on valid tabs (Overview or Follow-ups)
+  useEffect(() => {
+    if (
+      currentUser?.role === 'ACCOUNTS' &&
+      (activeTab === 'b2c_dispatch' || activeTab === 'b2b_credit' || activeTab === 'receipts')
+    ) {
+      setActiveTab('accounts');
+    }
+  }, [currentUser?.role, activeTab]);
+
   const handleLogout = async () => {
     try {
       await apiRequest('/api/auth/logout', { method: 'POST' });
@@ -131,6 +148,8 @@ export default function App() {
       setActiveCardFilter('ALL');
       if (res.user?.role === 'ACCOUNTS') {
         setActiveTab('accounts');
+      } else if (res.user?.role === 'DISPATCH') {
+        setActiveTab('dispatch');
       } else if (res.user?.role === 'LEAD' && !['dashboard', 'leads', 'ecp_projects'].includes(activeTab)) {
         setActiveTab('dashboard');
       } else if (res.user?.role === 'REGISTRATION') {
@@ -153,6 +172,8 @@ export default function App() {
         setActiveCardFilter('ALL');
         if (fallbackRes.user?.role === 'ACCOUNTS') {
           setActiveTab('accounts');
+        } else if (fallbackRes.user?.role === 'DISPATCH') {
+          setActiveTab('dispatch');
         } else if (fallbackRes.user?.role === 'REGISTRATION') {
           setActiveTab('registration');
         } else if (fallbackRes.user?.role === 'INSTALLATION_MANAGER' || fallbackRes.user?.role === 'INSTALLATION_MEMBER') {
@@ -214,7 +235,7 @@ export default function App() {
         />
 
         {/* Dynamic Tab Body */}
-        <main className={`flex-1 w-full mx-auto ${currentUser?.role === 'LEAD' ? 'pb-20 lg:pb-8' : ''} ${activeTab === 'dashboard' ? 'p-3 sm:p-4 max-w-7xl' : 'p-4 sm:p-6 lg:p-8 max-w-7xl'}`}>
+        <main className={`flex-1 w-full mx-auto ${currentUser?.role === 'LEAD' ? 'pb-20 lg:pb-8' : ''} ${activeTab === 'dashboard' || currentUser?.role === 'ACCOUNTS' || activeTab === 'accounts' || activeTab === 'receipts' || activeTab === 'b2c_dispatch' || activeTab === 'b2b_credit' ? 'p-3 sm:p-6 lg:p-8 max-w-7xl' : 'p-4 sm:p-6 lg:p-8 max-w-7xl'}`}>
           {activeTab === 'dashboard' && (
             <DashboardView
               currentUser={currentUser}
@@ -302,7 +323,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'followups' && (
+          {activeTab === 'followups' && currentUser?.role !== 'ACCOUNTS' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>

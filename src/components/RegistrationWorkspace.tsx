@@ -43,6 +43,7 @@ export const RegistrationWorkspace: React.FC<RegistrationWorkspaceProps> = ({
   onOpenLeadDetails,
   initialQueueFilter = 'ALL',
 }) => {
+  const isRegistrationUser = currentUser?.role === 'REGISTRATION';
   const [leads, setLeads] = useState<RegistrationLeadItem[]>([]);
   const [metrics, setMetrics] = useState<RegistrationMetrics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,12 +144,28 @@ export const RegistrationWorkspace: React.FC<RegistrationWorkspaceProps> = ({
               Role: {currentUser?.role || 'REGISTRATION'}
             </span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            Registration Team Workspace
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Operational cockpit for Registration 1, Net Metering coordination, and Registration 2 asset creation & completion.
-          </p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Registration Team Workspace
+            </h1>
+            <div className="relative group/info inline-flex items-center">
+              <button
+                type="button"
+                className="p-1 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-help focus:outline-hidden"
+                aria-label="Workspace Information"
+              >
+                <Info className="w-4 h-4" />
+              </button>
+              <div className="absolute left-0 sm:left-1/2 sm:-translate-x-1/2 top-full mt-1.5 z-50 hidden group-hover/info:block w-80 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-xl pointer-events-none transition-all">
+                <div className="font-medium leading-relaxed">
+                  Operational cockpit for Registration 1, Net Metering coordination, and Registration 2 asset creation & completion.
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-700/80 text-[11px] text-slate-300 leading-normal">
+                  <span className="font-bold text-amber-400">Workflow Sequence:</span> Registration 1 (Consumer Request, CVA & Feasibility) &rarr; Net Metering (Photos, DCR, Approvals & Installation meter close) &rarr; Registration 2 (Asset Creation, Completion Certificate & Bank Final Payment).
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 self-start md:self-auto">
@@ -394,56 +411,44 @@ export const RegistrationWorkspace: React.FC<RegistrationWorkspaceProps> = ({
         </button>
       </div>
 
-      {/* Operational Notice / Guide Banner */}
-      <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 text-indigo-900 text-xs flex items-start sm:items-center justify-between gap-3 shadow-2xs">
-        <div className="flex items-start sm:items-center gap-2.5">
-          <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5 sm:mt-0" />
-          <span>
-            <span className="font-bold">Workflow Sequence:</span> Registration 1 (Consumer Request, CVA & Feasibility) &rarr; Net Metering (Photos, DCR, Approvals & Installation meter close) &rarr; Registration 2 (Asset Creation, Completion Certificate & Bank Final Payment).
-          </span>
-        </div>
-        <div className="hidden lg:flex items-center gap-2 text-[11px] text-indigo-700 shrink-0 font-medium">
-          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-          Backend authoritative rules enforced
-        </div>
-      </div>
-
       {/* Work Queue & Table Container */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-        {/* Navigation Tabs */}
-        <div className="border-b border-slate-200 px-4 sm:px-5 pt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1 overflow-x-auto pb-2 scrollbar-none">
-            {[
-              { id: 'ALL', label: 'All Registration Work' },
-              { id: 'REG_1', label: 'Registration 1' },
-              { id: 'NET_METERING', label: 'Net Metering' },
-              { id: 'REG_2', label: 'Registration 2' },
-              { id: 'ACTIONABLE', label: 'My Actionable Tasks' },
-              { id: 'DELAYED', label: 'Delayed (> 5 Days)' },
-              { id: 'COMPLETED', label: 'Recently Completed' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setQueueFilter(tab.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                  queueFilter === tab.id
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+        {/* Navigation Tabs (Hidden for Registration team users as top tiles handle stage filtering) */}
+        {!isRegistrationUser && (
+          <div className="border-b border-slate-200 px-4 sm:px-5 pt-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1 overflow-x-auto pb-2 scrollbar-none">
+              {[
+                { id: 'ALL', label: 'All Registration Work' },
+                { id: 'REG_1', label: 'Registration 1' },
+                { id: 'NET_METERING', label: 'Net Metering' },
+                { id: 'REG_2', label: 'Registration 2' },
+                { id: 'ACTIONABLE', label: 'My Actionable Tasks' },
+                { id: 'DELAYED', label: 'Delayed (> 5 Days)' },
+                { id: 'COMPLETED', label: 'Recently Completed' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setQueueFilter(tab.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                    queueFilter === tab.id
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-          <div className="pb-2 text-xs font-semibold text-slate-500">
-            {filteredLeads.length} {filteredLeads.length === 1 ? 'project' : 'projects'} in view
+            <div className="pb-2 text-xs font-semibold text-slate-500">
+              {filteredLeads.length} {filteredLeads.length === 1 ? 'project' : 'projects'} in view
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Filter Controls Bar */}
-        <div className="p-3.5 bg-slate-50/70 border-b border-slate-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="p-3 sm:p-3.5 bg-slate-50/70 border-b border-slate-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3">
           {/* Search Box */}
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -452,7 +457,7 @@ export const RegistrationWorkspace: React.FC<RegistrationWorkspaceProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search customer, LD ID, mobile, location..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+              className="w-full pl-9 pr-3 py-2 sm:py-1.5 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
             />
             {searchQuery && (
               <button
@@ -466,39 +471,226 @@ export const RegistrationWorkspace: React.FC<RegistrationWorkspaceProps> = ({
           </div>
 
           {/* Secondary Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Customer Type Filter */}
-            <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-xl px-2 py-1 text-xs text-slate-600">
-              <span className="text-slate-400 font-medium">Type:</span>
-              <select
-                value={customerTypeFilter}
-                onChange={(e) => setCustomerTypeFilter(e.target.value as any)}
-                className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
-              >
-                <option value="ALL">All Types</option>
-                <option value="B2C">B2C (Residential)</option>
-                <option value="B2B">B2B (Commercial)</option>
-              </select>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
+              {/* Customer Type Filter */}
+              <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 sm:py-1 text-xs text-slate-600">
+                <span className="text-slate-400 font-medium text-[11px]">Type:</span>
+                <select
+                  value={customerTypeFilter}
+                  onChange={(e) => setCustomerTypeFilter(e.target.value as any)}
+                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer w-full text-xs"
+                >
+                  <option value="ALL">All Types</option>
+                  <option value="B2C">B2C</option>
+                  <option value="B2B">B2B</option>
+                </select>
+              </div>
+
+              {/* Financing Filter */}
+              <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 sm:py-1 text-xs text-slate-600">
+                <span className="text-slate-400 font-medium text-[11px]">Financing:</span>
+                <select
+                  value={financingFilter}
+                  onChange={(e) => setFinancingFilter(e.target.value as any)}
+                  className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer w-full text-xs"
+                >
+                  <option value="ALL">All</option>
+                  <option value="YES">Loan</option>
+                  <option value="NO">Cash</option>
+                </select>
+              </div>
             </div>
 
-            {/* Financing Filter */}
-            <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-xl px-2 py-1 text-xs text-slate-600">
-              <span className="text-slate-400 font-medium">Financing:</span>
-              <select
-                value={financingFilter}
-                onChange={(e) => setFinancingFilter(e.target.value as any)}
-                className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
-              >
-                <option value="ALL">All (Loan & Cash)</option>
-                <option value="YES">Financing: YES</option>
-                <option value="NO">Financing: NO</option>
-              </select>
-            </div>
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 shrink-0 text-right sm:text-left sm:ml-auto">
+              {filteredLeads.length} {filteredLeads.length === 1 ? 'project' : 'projects'} in view
+            </span>
           </div>
         </div>
 
-        {/* Work Queue Table */}
-        <div className="overflow-x-auto">
+        {/* Mobile View: Responsive Cards (< sm) */}
+        <div className="block sm:hidden divide-y divide-slate-100">
+          {loading ? (
+            <div className="py-12 text-center text-slate-400">
+              <div className="w-7 h-7 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs font-medium">Loading Registration work queue...</p>
+            </div>
+          ) : filteredLeads.length === 0 ? (
+            <div className="py-12 px-4 text-center text-slate-400">
+              <FileText className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+              <p className="text-sm font-semibold text-slate-700">No projects in this queue</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {queueFilter === 'DELAYED'
+                  ? 'Great job! No registration tasks are currently overdue.'
+                  : 'Adjust filters or check back when new projects complete documentation.'}
+              </p>
+            </div>
+          ) : (
+            filteredLeads.map((lead) => {
+              const isStageReg1 = lead.stage === 'REGISTRATION_1';
+              const isStageNet = lead.stage === 'NET_METERING';
+              const isStageReg2 = lead.stage === 'REGISTRATION_2';
+
+              return (
+                <div
+                  key={lead.id}
+                  className={`p-3.5 space-y-2.5 transition-colors ${
+                    lead.is_delayed ? 'bg-rose-50/25' : 'hover:bg-slate-50/60'
+                  }`}
+                >
+                  {/* Top row: Customer Name & ECP Link */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-slate-900 text-sm truncate">
+                        {lead.customer_name}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-500 text-[11px] mt-0.5">
+                        <span className="flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          {lead.mobile_number}
+                        </span>
+                        {lead.location && (
+                          <>
+                            <span>•</span>
+                            <span className="truncate max-w-[120px]">{lead.location}</span>
+                          </>
+                        )}
+                        {lead.capacity_kwp && (
+                          <>
+                            <span>•</span>
+                            <span className="font-semibold text-indigo-700">{lead.capacity_kwp} kWp</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => onOpenLeadDetails(lead.id)}
+                        className="font-bold text-indigo-600 hover:text-indigo-800 text-xs flex items-center gap-1 ml-auto"
+                      >
+                        LD-{lead.lead_number}
+                        <ExternalLink className="w-3 h-3 opacity-60" />
+                      </button>
+                      <span className="text-[10px] text-slate-400 block font-medium">
+                        {lead.customer_type}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Stage, Financing & SLA Badges */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    {/* Stage Badge */}
+                    {isStageReg1 ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <FileText className="w-2.5 h-2.5" /> Reg 1
+                      </span>
+                    ) : isStageNet ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        <Zap className="w-2.5 h-2.5" /> Net Metering
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                        <ShieldCheck className="w-2.5 h-2.5" /> Reg 2
+                      </span>
+                    )}
+
+                    {/* Financing Badge */}
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        lead.financing_required
+                          ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}
+                    >
+                      {lead.financing_required ? 'Loan' : 'Cash'}
+                    </span>
+
+                    {/* SLA / Days Badge */}
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ml-auto ${
+                        lead.is_delayed
+                          ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}
+                    >
+                      <Clock className="w-2.5 h-2.5" />
+                      <span>{lead.days_in_stage}d in stage</span>
+                      {lead.is_delayed && <span className="text-rose-600 font-extrabold uppercase">Overdue</span>}
+                    </span>
+                  </div>
+
+                  {/* Task progress box */}
+                  <div className="bg-slate-50/90 rounded-xl p-2.5 border border-slate-200/80">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800 truncate">
+                        {lead.current_task_code === 'CLOSE_NET_METERING' ? (
+                          <Hammer className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        ) : lead.overall_status === 'COMPLETED' ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        ) : (
+                          <Clock className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                        )}
+                        <span className="truncate">{lead.current_task_name || 'Tasks in progress'}</span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-slate-500 shrink-0 ml-1">
+                        {lead.completed_tasks_count}/{lead.total_tasks_count}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-indigo-600 h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.round(
+                            (lead.completed_tasks_count / Math.max(lead.total_tasks_count, 1)) * 100
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Actions row */}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLeadForTask(lead)}
+                      className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] transition-all ${
+                        lead.overall_status === 'COMPLETED'
+                          ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                      }`}
+                    >
+                      {lead.overall_status === 'COMPLETED' ? (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>View Completed Tasks</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Process Task</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenLeadDetails(lead.id)}
+                      className="py-2 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold rounded-xl flex items-center justify-center gap-1 transition-colors"
+                      title="Open Full Details"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Details</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop View: Table (hidden sm:block) */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-100/70 text-slate-600 font-bold uppercase tracking-wider text-[10px]">

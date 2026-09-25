@@ -72,21 +72,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               label: 'Dispatch Queue',
               icon: Truck,
             },
-            {
-              id: 'b2c_dispatch',
-              label: 'B2C Clearance Gate',
-              icon: ShieldCheck,
-            },
-            {
-              id: 'dashboard',
-              label: 'Dashboard',
-              icon: LayoutDashboard,
-            },
-            {
-              id: 'ecp_projects',
-              label: 'Projects',
-              icon: Layers,
-            },
           ],
         },
       ];
@@ -101,21 +86,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               id: 'accounts',
               label: 'Overview & Ledger',
               icon: Receipt,
-            },
-            {
-              id: 'b2c_dispatch',
-              label: 'B2C Dispatch Gate',
-              icon: ShieldCheck,
-            },
-            {
-              id: 'b2b_credit',
-              label: 'B2B Credit Terms',
-              icon: Building2,
-            },
-            {
-              id: 'receipts',
-              label: 'Receipts Book',
-              icon: ReceiptIndianRupee,
             },
             {
               id: 'followups',
@@ -135,11 +105,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               id: 'registration',
               label: 'Registration Queue',
               icon: FileText,
-            },
-            {
-              id: 'dashboard',
-              label: 'Dashboard',
-              icon: LayoutDashboard,
             },
             {
               id: 'ecp_projects',
@@ -254,8 +219,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         title: 'Field Execution',
         items: [
           { id: 'installation_command', label: 'Control Centre', icon: LayoutDashboard },
-          { id: 'site_visits', label: 'Site Surveys', icon: Compass },
-          { id: 'ecp_projects', label: 'My Installations', icon: Hammer },
         ],
       },
     ];
