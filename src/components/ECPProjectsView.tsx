@@ -38,6 +38,7 @@ export const ECPProjectsView: React.FC<ECPProjectsViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<string>(initialStageFilter || 'ALL');
   const [customerTypeFilter, setCustomerTypeFilter] = useState<'ALL' | 'B2C' | 'B2B'>(initialCustomerTypeFilter || 'ALL');
+  const isLeadUser = currentUser?.role === 'LEAD';
 
   React.useEffect(() => {
     if (initialStageFilter !== undefined) {
@@ -53,14 +54,21 @@ export const ECPProjectsView: React.FC<ECPProjectsViewProps> = ({
 
   // Filter leads to those eligible for or within the ECP Project pipeline:
   // - Status is QUALIFIED (undergoing documentation)
-  // - Status is DOCUMENTATION_COMPLETE or current_team is not purely pre-qualification LEAD
-  // - Or has a project_stage assigned
+  // - Status is DOCUMENTATION_COMPLETE or has reached a downstream project stage
+  // Pre-qualification leads (SITE_VISIT_PENDING, PENDING, LOST) are excluded.
   const allEcpProjects = leads.filter((lead) => {
+    if (
+      lead.status === 'SITE_VISIT_PENDING' ||
+      lead.status === 'PENDING' ||
+      lead.status === 'LOST' ||
+      lead.status === 'ESCALATED_TO_OWNER'
+    ) {
+      return false;
+    }
     const isEcpStage =
       lead.status === 'QUALIFIED' ||
       lead.status === 'DOCUMENTATION_COMPLETE' ||
-      (lead.project_stage && !['LEAD', 'LOST'].includes(lead.project_stage)) ||
-      !['LEAD', 'LEAD_TEAM'].includes(lead.current_team);
+      (Boolean(lead.project_stage) && !['LEAD', 'LOST'].includes(lead.project_stage as string));
     return isEcpStage;
   });
 
@@ -86,7 +94,10 @@ export const ECPProjectsView: React.FC<ECPProjectsViewProps> = ({
   ).length;
 
   const installationCount = allEcpProjects.filter(
-    (l) => l.project_stage === 'INSTALLATION' || ['INSTALLATION_MANAGER', 'INSTALLATION_TEAM'].includes(l.current_team)
+    (l) =>
+      l.project_stage === 'INSTALLATION' ||
+      (['INSTALLATION_MANAGER', 'INSTALLATION_TEAM'].includes(l.current_team) &&
+        l.status !== 'SITE_VISIT_PENDING')
   ).length;
 
   const completedCount = allEcpProjects.filter(
@@ -172,7 +183,8 @@ export const ECPProjectsView: React.FC<ECPProjectsViewProps> = ({
     } else if (stageFilter === 'INSTALLATION') {
       matchesStage =
         lead.project_stage === 'INSTALLATION' ||
-        ['INSTALLATION_MANAGER', 'INSTALLATION_TEAM'].includes(lead.current_team);
+        (['INSTALLATION_MANAGER', 'INSTALLATION_TEAM'].includes(lead.current_team) &&
+          lead.status !== 'SITE_VISIT_PENDING');
     } else if (stageFilter === 'CREDIT_APPROVAL') {
       matchesStage =
         (lead.b2b_credit_extended === 'YES' && lead.owner_credit_decision !== 'APPROVED') ||
@@ -400,32 +412,34 @@ export const ECPProjectsView: React.FC<ECPProjectsViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto text-xs">
-            {/* Quick Stage Filters */}
-            <div className="flex bg-slate-200/60 p-1 rounded-xl overflow-x-auto shrink-0">
-              {[
-                { id: 'ALL', label: 'All' },
-                { id: 'IN_DOCS', label: 'Docs' },
-                { id: 'REGISTRATION_1', label: 'Reg 1' },
-                { id: 'NET_METERING', label: 'Net Metering' },
-                { id: 'REGISTRATION_2', label: 'Reg 2' },
-                { id: 'DISPATCH', label: 'Dispatch' },
-                { id: 'INSTALLATION', label: 'Installation' },
-                { id: 'COMPLETED', label: 'Completed' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setStageFilter(tab.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all ${
-                    stageFilter === tab.id
-                      ? 'bg-white text-slate-900 shadow-xs font-bold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            {/* Quick Stage Filters (hidden for Lead user) */}
+            {!isLeadUser && (
+              <div className="flex bg-slate-200/60 p-1 rounded-xl overflow-x-auto shrink-0">
+                {[
+                  { id: 'ALL', label: 'All' },
+                  { id: 'IN_DOCS', label: 'Docs' },
+                  { id: 'REGISTRATION_1', label: 'Reg 1' },
+                  { id: 'NET_METERING', label: 'Net Metering' },
+                  { id: 'REGISTRATION_2', label: 'Reg 2' },
+                  { id: 'DISPATCH', label: 'Dispatch' },
+                  { id: 'INSTALLATION', label: 'Installation' },
+                  { id: 'COMPLETED', label: 'Completed' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setStageFilter(tab.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold whitespace-nowrap transition-all ${
+                      stageFilter === tab.id
+                        ? 'bg-white text-slate-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Customer Type Filter */}
             <select
@@ -454,8 +468,105 @@ export const ECPProjectsView: React.FC<ECPProjectsViewProps> = ({
           </div>
         </div>
 
-        {/* ECP Table */}
-        <div className="overflow-x-auto">
+        {/* Mobile ECP Card List (shown on < 768px screens for touch-friendly mobile usability) */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {filteredProjects.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs px-4">
+              <Layers className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+              <p className="text-sm font-semibold text-slate-600">No ECP Projects found</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {searchTerm || stageFilter !== 'ALL'
+                  ? 'Try adjusting your search query or stage filters.'
+                  : 'No qualified projects are currently in ECP workflow.'}
+              </p>
+            </div>
+          ) : (
+            filteredProjects.map((lead) => {
+              const isHandedOff = lead.current_team !== 'LEAD';
+              return (
+                <div
+                  key={`mobile-ecp-${lead.id}`}
+                  onClick={() => onSelectLead(lead.id, 'documents')}
+                  className="p-3.5 hover:bg-slate-50 active:bg-blue-50/40 transition-colors cursor-pointer space-y-2.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono font-bold text-blue-600 text-xs bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                        #{lead.lead_number}
+                      </span>
+                      <span className="font-bold text-slate-900 text-sm truncate">
+                        {lead.customer_name}
+                      </span>
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                      {lead.customer_type}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span className="font-mono text-[11px]">📱 {lead.mobile_number}</span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        lead.current_team?.includes('REGISTRATION')
+                          ? 'bg-teal-50 text-teal-700 border-teal-200'
+                          : lead.current_team?.includes('DISPATCH')
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : lead.current_team?.includes('INSTALLATION')
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                      }`}
+                    >
+                      {lead.current_team ? lead.current_team.replace(/_/g, ' ') : 'Lead Team'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    {lead.status === 'DOCUMENTATION_COMPLETE' ||
+                    lead.documentation_status === 'COMPLETED' ||
+                    isHandedOff ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Completed</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                        <Clock className="w-3 h-3" />
+                        <span>In Progress</span>
+                      </span>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectLead(lead.id, 'documents');
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold shadow-xs"
+                      >
+                        <FileCheck className="w-3 h-3" />
+                        <span>ECP Docs</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectLead(lead.id);
+                        }}
+                        className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold"
+                      >
+                        Details
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop ECP Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
               <tr>
@@ -516,7 +627,9 @@ export const ECPProjectsView: React.FC<ECPProjectsViewProps> = ({
                         </td>
                       )}
                       <td className="py-3.5 px-4">
-                        {isHandedOff ? (
+                        {lead.status === 'DOCUMENTATION_COMPLETE' ||
+                        lead.documentation_status === 'COMPLETED' ||
+                        isHandedOff ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             <CheckCircle2 className="w-3 h-3" />
                             <span>Gate Verified • Completed</span>
@@ -531,12 +644,16 @@ export const ECPProjectsView: React.FC<ECPProjectsViewProps> = ({
                       <td className="py-3.5 px-4">
                         <span
                           className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
-                            isHandedOff
+                            lead.current_team?.includes('REGISTRATION')
                               ? 'bg-teal-50 text-teal-700 border-teal-200'
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                              : lead.current_team?.includes('DISPATCH')
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : lead.current_team?.includes('INSTALLATION')
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-blue-50 text-blue-700 border-blue-200'
                           }`}
                         >
-                          {isHandedOff ? 'Registration 1' : 'Lead Team'}
+                          {lead.current_team ? lead.current_team.replace(/_/g, ' ') : 'Lead Team'}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right">

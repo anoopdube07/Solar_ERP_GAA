@@ -29,7 +29,7 @@ const getMetricsHandler = async (req: AuthenticatedRequest, res: any) => {
               COALESCE(rec_agg.total_received, 0)::numeric as total_received,
               CASE
                 WHEN l.status = 'LOST' THEN 'LOST'
-                WHEN l.status NOT IN ('QUALIFIED', 'DOCUMENTATION_COMPLETE') AND l.current_team IN ('LEAD', 'LEAD_TEAM') THEN 'LEAD'
+                WHEN l.status NOT IN ('QUALIFIED', 'DOCUMENTATION_COMPLETE') THEN 'LEAD'
                 WHEN (l.status = 'QUALIFIED' OR l.documentation_status = 'PENDING') AND l.current_team IN ('LEAD', 'LEAD_TEAM') THEN 'IN_DOCS'
                 WHEN l.current_team IN ('DISPATCH', 'DISPATCH_TEAM') THEN 'DISPATCH'
                 WHEN l.current_team IN ('INSTALLATION_MANAGER', 'INSTALLATION_TEAM') THEN 'INSTALLATION'
@@ -104,7 +104,11 @@ const getMetricsHandler = async (req: AuthenticatedRequest, res: any) => {
       const lost = typeLeads.filter((l) => l.status === 'LOST').length;
 
       const qualifiedLeads = typeLeads.filter(
-        (l) => l.status === 'QUALIFIED' || l.status === 'DOCUMENTATION_COMPLETE' || !['LEAD', 'LEAD_TEAM'].includes(l.current_team)
+        (l) =>
+          (l.status === 'QUALIFIED' || l.status === 'DOCUMENTATION_COMPLETE') &&
+          l.status !== 'SITE_VISIT_PENDING' &&
+          l.status !== 'LOST' &&
+          l.status !== 'PENDING'
       );
 
       const qualified_total = qualifiedLeads.length;

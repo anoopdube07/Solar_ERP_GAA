@@ -15,7 +15,7 @@ import { RegistrationWorkspace } from './components/RegistrationWorkspace';
 import { InstallationManagerWorkspace } from './components/InstallationManagerWorkspace';
 import { AccountsWorkspace } from './components/AccountsWorkspace';
 import { DispatchWorkspace } from './components/DispatchWorkspace';
-import { Clock, Calendar, BarChart3, Plus, ArrowLeft } from 'lucide-react';
+import { Clock, Calendar, BarChart3, Plus, ArrowLeft, LayoutDashboard, Users, Layers } from 'lucide-react';
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
@@ -214,7 +214,7 @@ export default function App() {
         />
 
         {/* Dynamic Tab Body */}
-        <main className={`flex-1 w-full mx-auto ${activeTab === 'dashboard' ? 'p-3 sm:p-4 max-w-7xl' : 'p-4 sm:p-6 lg:p-8 max-w-7xl'}`}>
+        <main className={`flex-1 w-full mx-auto ${currentUser?.role === 'LEAD' ? 'pb-20 lg:pb-8' : ''} ${activeTab === 'dashboard' ? 'p-3 sm:p-4 max-w-7xl' : 'p-4 sm:p-6 lg:p-8 max-w-7xl'}`}>
           {activeTab === 'dashboard' && (
             <DashboardView
               currentUser={currentUser}
@@ -517,6 +517,72 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar strictly for Lead Team Users */}
+      {currentUser?.role === 'LEAD' && (
+        <nav
+          aria-label="Mobile Navigation"
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-1.5 shadow-lg flex items-center justify-around pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        >
+          <button
+            type="button"
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${
+              activeTab === 'dashboard'
+                ? 'text-blue-600 font-bold'
+                : 'text-slate-500 hover:text-slate-900 font-medium'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            <span className="text-[10px]">Dashboard</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveCardFilter('ALL');
+              setLeadCustomerTypeFilter('ALL');
+              setActiveTab('leads');
+            }}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${
+              activeTab === 'leads'
+                ? 'text-blue-600 font-bold'
+                : 'text-slate-500 hover:text-slate-900 font-medium'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span className="text-[10px]">Leads</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="flex flex-col items-center gap-0.5 -mt-3.5 px-2 py-1 group active:scale-95 transition-transform"
+          >
+            <div className="w-10 h-10 rounded-full bg-blue-600 group-hover:bg-blue-700 shadow-md flex items-center justify-center text-white">
+              <Plus className="w-5 h-5" />
+            </div>
+            <span className="text-[9px] font-bold text-blue-600">New Lead</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setProjectStageFilter('ALL');
+              setProjectCustomerTypeFilter('ALL');
+              setActiveTab('ecp_projects');
+            }}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${
+              activeTab === 'ecp_projects'
+                ? 'text-blue-600 font-bold'
+                : 'text-slate-500 hover:text-slate-900 font-medium'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span className="text-[10px]">Projects</span>
+          </button>
+        </nav>
+      )}
 
       {/* Modals */}
       {showCreateModal && (

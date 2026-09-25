@@ -30,6 +30,10 @@ import {
   Ruler,
   Crosshair,
   Eye,
+  Maximize2,
+  Minimize2,
+  ArrowLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { apiRequest, formatINR } from '../lib/api';
 import { formatToIST } from '../../shared/timezone';
@@ -136,6 +140,9 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
 
   // Missing fields dialog
   const [missingRequirements, setMissingRequirements] = useState<string[] | null>(null);
+
+  // Full screen / full window interface mode (defaults to full screen for maximum workspace & easy-to-use UX)
+  const [isFullScreen, setIsFullScreen] = useState(true);
 
   // Quotation PDF preview & export state
   const [showQuotationPDF, setShowQuotationPDF] = useState(false);
@@ -481,24 +488,45 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
   const leadTeamMembers = users.filter((u) => u.role === 'LEAD' && u.active);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-5xl h-[94vh] flex flex-col overflow-hidden shadow-2xl text-slate-900">
+    <div
+      className={`fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center ${
+        isFullScreen ? 'p-0' : 'p-0 sm:p-4'
+      }`}
+    >
+      <div
+        className={`bg-white border-0 sm:border border-slate-200 flex flex-col overflow-hidden shadow-2xl text-slate-900 transition-all duration-200 ${
+          isFullScreen
+            ? 'w-full h-full rounded-none'
+            : 'rounded-none sm:rounded-2xl w-full max-w-6xl h-full sm:h-[94vh]'
+        }`}
+      >
         {/* Top Header */}
-        <div className="p-4 sm:px-6 border-b border-slate-200 flex items-center justify-between bg-slate-50/90 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-sm shadow-xs">
+        <div className="p-2.5 sm:px-6 sm:py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/95 flex-shrink-0 gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Quick Back to Leads button */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 -ml-1 text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition-colors flex items-center gap-1 text-xs font-semibold shrink-0"
+              title="Return to Leads Overview"
+            >
+              <ArrowLeft className="w-5 h-5 text-slate-700" />
+              <span className="hidden md:inline">Back</span>
+            </button>
+
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-xs sm:text-sm shadow-xs flex-shrink-0">
               #{lead.lead_number}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h1 className="text-sm sm:text-lg font-bold text-slate-900 tracking-tight truncate max-w-[130px] xs:max-w-[180px] sm:max-w-md">
                   {lead.customer_name}
                 </h1>
-                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="px-1.5 sm:px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
                   {lead.customer_type}
                 </span>
                 <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                  className={`px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-bold uppercase tracking-wider shrink-0 ${
                     lead.status === 'QUALIFIED'
                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       : lead.status === 'LOST'
@@ -515,14 +543,21 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                   {lead.status.replace(/_/g, ' ')}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 flex flex-wrap items-center gap-2 mt-0.5">
-                <span>📱 {lead.mobile_number}</span>
-                <span>•</span>
-                <span>Team: <strong className="text-slate-700">{lead.current_team}</strong></span>
+              <p className="text-[11px] sm:text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                <a
+                  href={`tel:${lead.mobile_number}`}
+                  title="Tap to call client"
+                  className="font-mono text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-0.5 font-medium"
+                >
+                  <span>📱</span>
+                  <span>{lead.mobile_number}</span>
+                </a>
+                <span className="hidden xs:inline">•</span>
+                <span className="hidden xs:inline">Team: <strong className="text-slate-700">{lead.current_team}</strong></span>
                 {currentUser?.role !== 'LEAD' && (
                   <>
-                    <span>•</span>
-                    <span>Owner: <strong className="text-slate-700">{lead.owner_name}</strong></span>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="hidden sm:inline">Owner: <strong className="text-slate-700">{lead.owner_name}</strong></span>
                   </>
                 )}
                 {lead.customer_type === 'B2C' && (
@@ -534,7 +569,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                         type="button"
                         disabled={updatingLoan}
                         onClick={() => handleUpdateLoanRequired(editedLead.b2c_loan_required === 'YES' ? 'NO' : 'YES')}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors flex items-center gap-1 cursor-pointer ${
+                        className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] font-bold border transition-colors flex items-center gap-1 cursor-pointer ${
                           editedLead.b2c_loan_required === 'YES'
                             ? 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200'
                             : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
@@ -553,17 +588,17 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {/* Reassign Lead (Owner & Manager Only) */}
             {(currentUser.role === 'OWNER' || currentUser.role === 'MANAGER') && (
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowReassignDropdown(!showReassignDropdown)}
-                  className="px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-colors shadow-xs"
+                  className="px-2 sm:px-2.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-colors shadow-xs"
                 >
                   <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-                  <span className="hidden sm:inline">Reassign</span>
+                  <span className="hidden md:inline">Reassign</span>
                 </button>
 
                 {showReassignDropdown && (
@@ -593,9 +628,26 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
               </div>
             )}
 
+            {/* Toggle Full Window / Contained mode */}
             <button
+              type="button"
+              onClick={() => setIsFullScreen(!isFullScreen)}
+              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors hidden sm:flex items-center justify-center"
+              title={isFullScreen ? 'Exit Full Window (Docked View)' : 'Expand to Full Window'}
+            >
+              {isFullScreen ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
+              )}
+            </button>
+
+            {/* Close / Return button */}
+            <button
+              type="button"
               onClick={onClose}
               className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Close Full Window"
             >
               <X className="w-5 h-5" />
             </button>
@@ -603,7 +655,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
         </div>
 
         {/* Workflow Command Center / Action Bar */}
-        <div className="px-4 sm:px-6 py-2.5 bg-slate-50/60 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
+        <div className="px-3 sm:px-6 py-2 sm:py-2.5 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 flex-shrink-0">
           {currentUser.role === 'INSTALLATION_MEMBER' ? (
             <div className="flex items-center gap-2 text-xs">
               <span className="px-2.5 py-1 rounded-lg bg-teal-50 text-teal-800 border border-teal-200 font-semibold flex items-center gap-1.5">
@@ -619,179 +671,180 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
               </span>
             </div>
           ) : (
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            {/* Action YES (Qualify) */}
-            {lead.status === 'PENDING' && (
-              <button
-                type="button"
-                id="workflow-btn-yes"
-                onClick={handleQualifyYes}
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
-                title="Qualify Lead & Handoff"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>YES (Qualify)</span>
-              </button>
-            )}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
+              {/* Row 1 on Mobile: Primary Workflow Action Decision Grid */}
+              <div className="w-full sm:w-auto">
+                {/* When PENDING: Clean 2-column grid on mobile for YES & NO */}
+                {lead.status === 'PENDING' && (
+                  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:items-center">
+                    <button
+                      type="button"
+                      id="workflow-btn-yes"
+                      onClick={handleQualifyYes}
+                      className="w-full sm:w-auto px-3.5 py-2 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-xs text-xs"
+                      title="Qualify Lead & Handoff"
+                    >
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span>YES (Qualify)</span>
+                    </button>
 
-            {/* Action NO (Lost) */}
-            {lead.status === 'PENDING' && (
-              <button
-                type="button"
-                id="workflow-btn-no"
-                onClick={() => setShowLostModal(true)}
-                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold flex items-center gap-1.5 transition-colors"
-              >
-                <XCircle className="w-4 h-4" />
-                <span>NO (Lost)</span>
-              </button>
-            )}
+                    <button
+                      type="button"
+                      id="workflow-btn-no"
+                      onClick={() => setShowLostModal(true)}
+                      className="w-full sm:w-auto px-3.5 py-2 sm:py-1.5 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 text-rose-700 border border-rose-200 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-colors text-xs"
+                    >
+                      <XCircle className="w-4 h-4 shrink-0" />
+                      <span>NO (Lost)</span>
+                    </button>
+                  </div>
+                )}
 
-            {/* ECP Documents Gateway Action */}
-            {lead.status === 'QUALIFIED' && lead.current_team === 'LEAD' && (
-              <button
-                type="button"
-                id="workflow-btn-ecp-docs"
-                onClick={() => setActiveTab('documents')}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                <FileCheck className="w-4 h-4" />
-                <span>Upload ECP Documents</span>
-              </button>
-            )}
+                {/* ECP Documents Gateway Action */}
+                {lead.status === 'QUALIFIED' && lead.current_team === 'LEAD' && (
+                  <button
+                    type="button"
+                    id="workflow-btn-ecp-docs"
+                    onClick={() => setActiveTab('documents')}
+                    className="w-full sm:w-auto px-3.5 py-2 sm:py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-xs text-xs"
+                  >
+                    <FileCheck className="w-4 h-4" />
+                    <span>Upload ECP Documents</span>
+                  </button>
+                )}
 
-            {/* Reopen Lost (Owner Only) */}
-            {lead.status === 'LOST' && currentUser.role === 'OWNER' && (
-              <button
-                type="button"
-                id="workflow-btn-reopen"
-                onClick={handleReopenLost}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Reopen Lead</span>
-              </button>
-            )}
+                {/* Reopen Lost (Owner Only) */}
+                {lead.status === 'LOST' && currentUser.role === 'OWNER' && (
+                  <button
+                    type="button"
+                    id="workflow-btn-reopen"
+                    onClick={handleReopenLost}
+                    className="w-full sm:w-auto px-3.5 py-2 sm:py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-xs text-xs"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Reopen Lead</span>
+                  </button>
+                )}
 
-            {/* Schedule Follow-up */}
-            {lead.status === 'PENDING' && (
-              <button
-                type="button"
-                id="workflow-btn-followup"
-                onClick={() => setShowFollowUpModal(true)}
-                className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                <PhoneCall className="w-3.5 h-3.5 text-blue-600" />
-                <span>Follow-up Call</span>
-              </button>
-            )}
+                {/* Owner Return Escalation */}
+                {lead.status === 'ESCALATED_TO_OWNER' && currentUser.role === 'OWNER' && (
+                  <button
+                    type="button"
+                    onClick={() => setEscalationModalMode('RETURN')}
+                    className="w-full sm:w-auto px-3.5 py-2 sm:py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-xs text-xs"
+                  >
+                    <CornerUpLeft className="w-4 h-4" />
+                    <span>Review & Return Escalation</span>
+                  </button>
+                )}
 
-            {/* Request Site Visit (B2C Only) */}
-            {lead.customer_type === 'B2C' && lead.status === 'PENDING' && (
-              <button
-                type="button"
-                id="workflow-btn-site-visit"
-                onClick={() => {
-                  setSelectedSiteVisit(null);
-                  setSiteVisitModalMode('REQUEST');
-                }}
-                className="px-3 py-1.5 bg-white hover:bg-slate-50 text-blue-700 border border-blue-200 rounded-xl font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                <Compass className="w-3.5 h-3.5" />
-                <span>Site Visit</span>
-              </button>
-            )}
+                {/* Owner Decide Credit */}
+                {lead.status === 'OWNER_CREDIT_APPROVAL' && currentUser.role === 'OWNER' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreditModal(true)}
+                    className="w-full sm:w-auto px-3.5 py-2 sm:py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-xs text-xs"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Decide Credit Approval</span>
+                  </button>
+                )}
 
-            {/* Escalate to Owner */}
-            {lead.status === 'PENDING' && (
-              <button
-                type="button"
-                id="workflow-btn-escalate"
-                onClick={() => setEscalationModalMode('ESCALATE')}
-                className="px-3 py-1.5 bg-white hover:bg-slate-50 text-purple-700 border border-purple-200 rounded-xl font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                <ArrowUpRight className="w-3.5 h-3.5" />
-                <span>Escalate</span>
-              </button>
-            )}
+                {/* Awaiting Owner Status Badge for Non-Owners */}
+                {lead.status === 'OWNER_CREDIT_APPROVAL' && currentUser.role !== 'OWNER' && (
+                  <div className="w-full sm:w-auto px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl font-medium text-xs flex items-center justify-center sm:justify-start gap-1.5 shadow-xs">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Awaiting Owner Credit Approval</span>
+                  </div>
+                )}
+              </div>
 
-            {/* Owner Return Escalation */}
-            {lead.status === 'ESCALATED_TO_OWNER' && currentUser.role === 'OWNER' && (
-              <button
-                type="button"
-                onClick={() => setEscalationModalMode('RETURN')}
-                className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                <CornerUpLeft className="w-4 h-4" />
-                <span>Review & Return Escalation</span>
-              </button>
-            )}
+              {/* Row 2 on Mobile: Horizontal Quick-Tool Ribbon (Follow-up, Site Visit, Escalate, PDF, Save) */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto pb-0.5 sm:pb-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shrink-0">
+                {/* Schedule Follow-up */}
+                {lead.status === 'PENDING' && (
+                  <button
+                    type="button"
+                    id="workflow-btn-followup"
+                    onClick={() => setShowFollowUpModal(true)}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl font-semibold flex items-center gap-1.5 transition-colors shadow-xs text-xs shrink-0 whitespace-nowrap"
+                  >
+                    <PhoneCall className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Follow-up Call</span>
+                  </button>
+                )}
 
-            {/* Submit B2B Credit Request */}
-            {lead.customer_type === 'B2B' &&
-              lead.status === 'PENDING' &&
-              editedLead.b2b_credit_extended === 'YES' && (
+                {/* Request Site Visit (B2C Only) */}
+                {lead.customer_type === 'B2C' && lead.status === 'PENDING' && (
+                  <button
+                    type="button"
+                    id="workflow-btn-site-visit"
+                    onClick={() => {
+                      setSelectedSiteVisit(null);
+                      setSiteVisitModalMode('REQUEST');
+                    }}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-50 text-blue-700 border border-blue-200 rounded-xl font-semibold flex items-center gap-1.5 transition-colors shadow-xs text-xs shrink-0 whitespace-nowrap"
+                  >
+                    <Compass className="w-3.5 h-3.5" />
+                    <span>Site Visit</span>
+                  </button>
+                )}
+
+                {/* Escalate to Owner */}
+                {lead.status === 'PENDING' && (
+                  <button
+                    type="button"
+                    id="workflow-btn-escalate"
+                    onClick={() => setEscalationModalMode('ESCALATE')}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-50 text-purple-700 border border-purple-200 rounded-xl font-semibold flex items-center gap-1.5 transition-colors shadow-xs text-xs shrink-0 whitespace-nowrap"
+                  >
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                    <span>Escalate</span>
+                  </button>
+                )}
+
+                {/* Submit B2B Credit Request */}
+                {lead.customer_type === 'B2B' &&
+                  lead.status === 'PENDING' &&
+                  editedLead.b2b_credit_extended === 'YES' && (
+                    <button
+                      type="button"
+                      onClick={handleSubmitCredit}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 rounded-xl font-semibold flex items-center gap-1.5 transition-colors shadow-xs text-xs shrink-0 whitespace-nowrap"
+                    >
+                      <DollarSign className="w-3.5 h-3.5" />
+                      <span>Submit Credit</span>
+                    </button>
+                  )}
+
+                {/* Quotation PDF Export Button */}
                 <button
                   type="button"
-                  onClick={handleSubmitCredit}
-                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 rounded-xl font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                  id="btn-header-quotation-pdf"
+                  onClick={() => setShowQuotationPDF(true)}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs shrink-0 whitespace-nowrap"
+                  title="Preview & Download Standard Quotation PDF"
                 >
-                  <DollarSign className="w-3.5 h-3.5" />
-                  <span>Submit Credit for Approval</span>
+                  <Printer className="w-3.5 h-3.5 text-blue-600" />
+                  <span>PDF Quotation</span>
                 </button>
-              )}
 
-            {/* Owner Decide Credit */}
-            {lead.status === 'OWNER_CREDIT_APPROVAL' && currentUser.role === 'OWNER' && (
-              <button
-                type="button"
-                onClick={() => setShowCreditModal(true)}
-                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Decide Credit Approval</span>
-              </button>
-            )}
-
-            {/* Awaiting Owner Status Badge for Non-Owners */}
-            {lead.status === 'OWNER_CREDIT_APPROVAL' && currentUser.role !== 'OWNER' && (
-              <div className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl font-medium text-xs flex items-center gap-1.5 shadow-xs">
-                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                <span>Awaiting Owner Credit Approval</span>
+                {/* Save Button */}
+                {!isEditingLocked && (
+                  <button
+                    type="button"
+                    id="lead-save-btn"
+                    onClick={handleSaveLead}
+                    disabled={isSaving}
+                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50 shrink-0 whitespace-nowrap"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+                  </button>
+                )}
               </div>
-            )}
-          </div>
+            </div>
           )}
-
-          <div className="flex items-center gap-2">
-            {/* Quotation PDF Export Button */}
-            {currentUser.role !== 'INSTALLATION_MEMBER' && (
-              <button
-                type="button"
-                id="btn-header-quotation-pdf"
-                onClick={() => setShowQuotationPDF(true)}
-                className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-                title="Preview & Download Standard Quotation PDF"
-              >
-                <Printer className="w-3.5 h-3.5 text-blue-600" />
-                <span>PDF Quotation</span>
-              </button>
-            )}
-
-            {/* Save Button */}
-            {!isEditingLocked && (
-              <button
-                type="button"
-                id="lead-save-btn"
-                onClick={handleSaveLead}
-                disabled={isSaving}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
-              </button>
-            )}
-          </div>
         </div>
 
         {/* View-Only Banner */}
@@ -927,474 +980,680 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
           </div>
         )}
 
-        {/* Workspace Navigation Tabs */}
-        <div className="px-6 border-b border-slate-200 flex items-center gap-4 bg-white flex-shrink-0 overflow-x-auto text-xs font-semibold">
-          {/* 1. Lead Details & Customer Fields */}
-          <button
-            id="tab-btn-lead-fields"
-            onClick={() => setActiveTab('fields')}
-            className={`py-3 border-b-2 flex items-center gap-2 transition-colors ${
-              activeTab === 'fields'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <Tag className="w-4 h-4" />
-            Lead Details & Customer Fields
-          </button>
+        {/* Main Workspace Layout with Sidebar Navigation */}
+        <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden bg-slate-50/50">
+          {/* Left Navigation Sidebar */}
+          <aside className="w-full md:w-60 lg:w-64 bg-white border-b md:border-b-0 md:border-r border-slate-200 flex flex-col shrink-0">
+            {/* Mobile Navigation Tabs (< md screens) */}
+            <div className="md:hidden flex items-center gap-1.5 px-3 py-2 overflow-x-auto no-scrollbar border-b border-slate-200/80 bg-white text-xs font-semibold [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden shrink-0">
+              <button
+                id="tab-btn-lead-fields"
+                onClick={() => setActiveTab('fields')}
+                className={`px-3 py-1.5 min-h-[34px] rounded-lg flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors ${
+                  activeTab === 'fields'
+                    ? 'bg-blue-600 text-white font-bold shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <Tag className="w-3.5 h-3.5" />
+                <span>Details &amp; Specs</span>
+              </button>
 
-          {/* 2. Commercial & Quotation (Hidden for Field Technicians) */}
-          {currentUser.role !== 'INSTALLATION_MEMBER' && (
-            <button
-              id="tab-btn-commercial-quotation"
-              onClick={() => setActiveTab('commercial')}
-              className={`py-3 border-b-2 flex items-center gap-2 transition-colors ${
-                activeTab === 'commercial'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Commercial & Quotation
-            </button>
-          )}
+              {currentUser.role !== 'INSTALLATION_MEMBER' && (
+                <button
+                  id="tab-btn-commercial-quotation"
+                  onClick={() => setActiveTab('commercial')}
+                  className={`px-3 py-1.5 min-h-[34px] rounded-lg flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors ${
+                    activeTab === 'commercial'
+                      ? 'bg-blue-600 text-white font-bold shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Commercial</span>
+                </button>
+              )}
 
-          {/* 3. ECP Documents */}
-          <button
-            id="tab-btn-ecp-documents"
-            onClick={() => setActiveTab('documents')}
-            className={`py-3 border-b-2 flex items-center gap-2 transition-colors ${
-              activeTab === 'documents'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <FileCheck className="w-4 h-4" />
-            <span>ECP Documents</span>
-            {lead.status === 'QUALIFIED' && lead.current_team === 'LEAD' && (
-              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-            )}
-            {(lead.current_team === 'REGISTRATION_1' || lead.current_team === 'REGISTRATION_TEAM') && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
-                Reg 1
-              </span>
-            )}
-          </button>
+              <button
+                id="tab-btn-ecp-documents"
+                onClick={() => setActiveTab('documents')}
+                className={`px-3 py-1.5 min-h-[34px] rounded-lg flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors ${
+                  activeTab === 'documents'
+                    ? 'bg-blue-600 text-white font-bold shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <FileCheck className="w-3.5 h-3.5" />
+                <span>ECP Docs</span>
+              </button>
 
-          {/* Follow-up Log (Hidden for Field Technicians) */}
-          {currentUser.role !== 'INSTALLATION_MEMBER' && (
-            <button
-              onClick={() => setActiveTab('followups')}
-              className={`py-3 border-b-2 flex items-center gap-2 transition-colors ${
-                activeTab === 'followups'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <PhoneCall className="w-4 h-4" />
-              Follow-up Log ({lead.follow_ups?.length || 0})
-            </button>
-          )}
+              {currentUser.role !== 'INSTALLATION_MEMBER' && (
+                <button
+                  onClick={() => setActiveTab('followups')}
+                  className={`px-3 py-1.5 min-h-[34px] rounded-lg flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors ${
+                    activeTab === 'followups'
+                      ? 'bg-blue-600 text-white font-bold shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  <span>Follow-ups ({lead.follow_ups?.length || 0})</span>
+                </button>
+              )}
 
-          {lead.customer_type === 'B2C' && (
-            <button
-              onClick={() => setActiveTab('site_visits')}
-              className={`py-3 border-b-2 flex items-center gap-2 transition-colors ${
-                activeTab === 'site_visits'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Compass className="w-4 h-4" />
-              Site Visits ({lead.site_visits?.length || 0})
-            </button>
-          )}
+              {lead.customer_type === 'B2C' && (
+                <button
+                  onClick={() => setActiveTab('site_visits')}
+                  className={`px-3 py-1.5 min-h-[34px] rounded-lg flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors ${
+                    activeTab === 'site_visits'
+                      ? 'bg-blue-600 text-white font-bold shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Visits ({lead.site_visits?.length || 0})</span>
+                </button>
+              )}
 
-          {/* Credit & Escalations (Hidden for Field Technicians) */}
-          {currentUser.role !== 'INSTALLATION_MEMBER' && (
-            <button
-              onClick={() => setActiveTab('credit_escalations')}
-              className={`py-3 border-b-2 flex items-center gap-2 transition-colors ${
-                activeTab === 'credit_escalations'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <DollarSign className="w-4 h-4" />
-              Credit & Escalations
-            </button>
-          )}
+              {currentUser.role !== 'INSTALLATION_MEMBER' && (
+                <button
+                  onClick={() => setActiveTab('credit_escalations')}
+                  className={`px-3 py-1.5 min-h-[34px] rounded-lg flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors ${
+                    activeTab === 'credit_escalations'
+                      ? 'bg-blue-600 text-white font-bold shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>Credit</span>
+                </button>
+              )}
 
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`py-3 border-b-2 flex items-center gap-2 transition-colors ${
-              activeTab === 'history'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <History className="w-4 h-4" />
-            Audit History ({lead.workflow_history?.length || 0})
-          </button>
-        </div>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`px-3 py-1.5 min-h-[34px] rounded-lg flex items-center gap-1.5 shrink-0 whitespace-nowrap transition-colors ${
+                  activeTab === 'history'
+                    ? 'bg-blue-600 text-white font-bold shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>History ({lead.workflow_history?.length || 0})</span>
+              </button>
+            </div>
 
-        {/* Tab Content Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6 bg-slate-50/40">
-          {/* TAB 1: Lead Details & Custom Fields */}
-          {activeTab === 'fields' && (
-            <div className="space-y-6">
-              {/* Standard Information */}
-              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-xs">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Standard Contact & Site Information
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <label className="block text-slate-600 mb-1">Customer / Organization Name</label>
-                    <input
-                      type="text"
-                      disabled={isEditingLocked}
-                      value={editedLead.customer_name || ''}
-                      onChange={(e) => setEditedLead((prev) => ({ ...prev, customer_name: e.target.value }))}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs"
-                    />
+            {/* Desktop Vertical Sidebar (>= md screens) */}
+            <div className="hidden md:flex flex-col flex-1 p-3 space-y-1.5 overflow-y-auto">
+              <div className="px-2 pt-1 pb-1 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <span>Navigation</span>
+                <span className="font-mono text-slate-500">{lead.customer_type}</span>
+              </div>
+
+              {/* 1. Details & Specs */}
+              <button
+                id="tab-btn-lead-fields"
+                onClick={() => setActiveTab('fields')}
+                className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                  activeTab === 'fields'
+                    ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200/80 shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`p-1.5 rounded-lg ${
+                      activeTab === 'fields' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    <Tag className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <span className="block text-xs truncate">Details &amp; Specs</span>
+                    <span className="block text-[10px] font-normal text-slate-400 truncate">
+                      Customer &amp; Solar Info
+                    </span>
+                  </div>
+                </div>
+                {missingRequirements && missingRequirements.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                    !
+                  </span>
+                )}
+              </button>
+
+              {/* 2. Commercial & Quotation */}
+              {currentUser.role !== 'INSTALLATION_MEMBER' && (
+                <button
+                  id="tab-btn-commercial-quotation"
+                  onClick={() => setActiveTab('commercial')}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                    activeTab === 'commercial'
+                      ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200/80 shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`p-1.5 rounded-lg ${
+                        activeTab === 'commercial' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </div>
+                    <div className="truncate">
+                      <span className="block text-xs truncate">Commercial</span>
+                      <span className="block text-[10px] font-normal text-slate-400 truncate">
+                        Proposal &amp; Quote
+                      </span>
+                    </div>
+                  </div>
+                  {quotationState.totalProjectValue > 0 && (
+                    <span className="text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
+                      {formatINR(quotationState.totalProjectValue)}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* 3. ECP Documents */}
+              <button
+                id="tab-btn-ecp-documents"
+                onClick={() => setActiveTab('documents')}
+                className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                  activeTab === 'documents'
+                    ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200/80 shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`p-1.5 rounded-lg ${
+                      activeTab === 'documents' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    <FileCheck className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <span className="block text-xs truncate">ECP Docs</span>
+                    <span className="block text-[10px] font-normal text-slate-400 truncate">
+                      Compliance &amp; Files
+                    </span>
+                  </div>
+                </div>
+                {lead.status === 'QUALIFIED' && lead.current_team === 'LEAD' ? (
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse shrink-0" />
+                ) : lead.current_team === 'REGISTRATION_1' || lead.current_team === 'REGISTRATION_TEAM' ? (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold shrink-0">
+                    Reg 1
+                  </span>
+                ) : null}
+              </button>
+
+              {/* 4. Follow-up Calls */}
+              {currentUser.role !== 'INSTALLATION_MEMBER' && (
+                <button
+                  onClick={() => setActiveTab('followups')}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                    activeTab === 'followups'
+                      ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200/80 shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`p-1.5 rounded-lg ${
+                        activeTab === 'followups' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <PhoneCall className="w-4 h-4" />
+                    </div>
+                    <div className="truncate">
+                      <span className="block text-xs truncate">Follow-ups</span>
+                      <span className="block text-[10px] font-normal text-slate-400 truncate">
+                        Call Logs
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold shrink-0">
+                    {lead.follow_ups?.length || 0}
+                  </span>
+                </button>
+              )}
+
+              {/* 5. Site Visits (B2C) */}
+              {lead.customer_type === 'B2C' && (
+                <button
+                  onClick={() => setActiveTab('site_visits')}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                    activeTab === 'site_visits'
+                      ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200/80 shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`p-1.5 rounded-lg ${
+                        activeTab === 'site_visits' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <Compass className="w-4 h-4" />
+                    </div>
+                    <div className="truncate">
+                      <span className="block text-xs truncate">Site Visits</span>
+                      <span className="block text-[10px] font-normal text-slate-400 truncate">
+                        Technical Survey
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold shrink-0">
+                    {lead.site_visits?.length || 0}
+                  </span>
+                </button>
+              )}
+
+              {/* 6. Credit & Escalations */}
+              {currentUser.role !== 'INSTALLATION_MEMBER' && (
+                <button
+                  onClick={() => setActiveTab('credit_escalations')}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                    activeTab === 'credit_escalations'
+                      ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200/80 shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`p-1.5 rounded-lg ${
+                        activeTab === 'credit_escalations' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      <DollarSign className="w-4 h-4" />
+                    </div>
+                    <div className="truncate">
+                      <span className="block text-xs truncate">Credit &amp; Escalations</span>
+                      <span className="block text-[10px] font-normal text-slate-400 truncate">
+                        Decisions &amp; Approvals
+                      </span>
+                    </div>
+                  </div>
+                  {lead.customer_type === 'B2B' && lead.status === 'OWNER_CREDIT_APPROVAL' && (
+                    <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold shrink-0">
+                      Review
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* 7. History */}
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                  activeTab === 'history'
+                    ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200/80 shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`p-1.5 rounded-lg ${
+                      activeTab === 'history' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    <History className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <span className="block text-xs truncate">Audit History</span>
+                    <span className="block text-[10px] font-normal text-slate-400 truncate">
+                      Event Log
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold shrink-0">
+                  {lead.workflow_history?.length || 0}
+                </span>
+              </button>
+            </div>
+
+            {/* Sidebar Meta Footer (Desktop) */}
+            <div className="hidden md:block p-3 border-t border-slate-200 bg-slate-50/70 text-xs space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>Lead ID</span>
+                <span className="font-mono font-bold text-slate-800">#{lead.id.slice(0, 8).toUpperCase()}</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>Team</span>
+                <span className="font-semibold text-slate-800">{lead.current_team}</span>
+              </div>
+              {lead.mobile_number && (
+                <a
+                  href={`tel:${lead.mobile_number}`}
+                  className="mt-1.5 w-full py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <PhoneCall className="w-3 h-3 text-emerald-600" />
+                  <span>Call {lead.mobile_number}</span>
+                </a>
+              )}
+            </div>
+          </aside>
+
+          {/* Right Main Content Body (Compact, minimal scrolling) */}
+          <main className="flex-1 overflow-y-auto p-3 sm:p-5 min-h-0 space-y-4 sm:space-y-5 bg-slate-50/40">
+            {/* TAB 1: Lead Details & Custom Fields */}
+            {activeTab === 'fields' && (
+              <div className="space-y-4">
+                {/* Standard Contact & Site Information - Compact Multi-column Grid */}
+                <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <UserIcon className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Contact &amp; Site Information</span>
+                    </h3>
+                    <span className="text-[11px] text-slate-400">Core Customer Details</span>
                   </div>
 
-                  <div>
-                    <label className="block text-slate-600 mb-1">Mobile Number (10 digits)</label>
-                    <input
-                      type="tel"
-                      maxLength={10}
-                      disabled={isEditingLocked}
-                      value={editedLead.mobile_number || ''}
-                      onChange={(e) =>
-                        setEditedLead((prev) => ({
-                          ...prev,
-                          mobile_number: e.target.value.replace(/\D/g, ''),
-                        }))
-                      }
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:border-blue-500 shadow-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-600 mb-1">Email Address</label>
-                    <input
-                      type="email"
-                      disabled={isEditingLocked}
-                      value={editedLead.email || ''}
-                      onChange={(e) => setEditedLead((prev) => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-600 mb-1">City / Location</label>
-                    <input
-                      type="text"
-                      disabled={isEditingLocked}
-                      value={editedLead.location || ''}
-                      onChange={(e) => setEditedLead((prev) => ({ ...prev, location: e.target.value }))}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-slate-600 mb-1">Premises Address</label>
-                    <input
-                      type="text"
-                      disabled={isEditingLocked}
-                      value={editedLead.address || ''}
-                      onChange={(e) => setEditedLead((prev) => ({ ...prev, address: e.target.value }))}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-600 mb-1">Project Installation Location</label>
-                    <input
-                      type="text"
-                      disabled={isEditingLocked}
-                      value={editedLead.project_installation_location || ''}
-                      onChange={(e) =>
-                        setEditedLead((prev) => ({
-                          ...prev,
-                          project_installation_location: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-600 mb-1">Google Maps Location Link</label>
-                    <div className="flex gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs">
+                    <div>
+                      <label className="block text-slate-600 mb-0.5 text-[11px] font-medium">Customer / Org Name</label>
                       <input
-                        type="url"
+                        type="text"
                         disabled={isEditingLocked}
-                        value={editedLead.location_link || ''}
-                        onChange={(e) =>
-                          setEditedLead((prev) => ({ ...prev, location_link: e.target.value }))
-                        }
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs"
+                        value={editedLead.customer_name || ''}
+                        onChange={(e) => setEditedLead((prev) => ({ ...prev, customer_name: e.target.value }))}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs text-xs"
                       />
-                      {editedLead.location_link && (
-                        <a
-                          href={editedLead.location_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-blue-700 shadow-xs"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 mb-0.5 text-[11px] font-medium">Mobile Number (10 digits)</label>
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        disabled={isEditingLocked}
+                        value={editedLead.mobile_number || ''}
+                        onChange={(e) =>
+                          setEditedLead((prev) => ({
+                            ...prev,
+                            mobile_number: e.target.value.replace(/\D/g, ''),
+                          }))
+                        }
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:border-blue-500 shadow-xs text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 mb-0.5 text-[11px] font-medium">Email Address</label>
+                      <input
+                        type="email"
+                        disabled={isEditingLocked}
+                        value={editedLead.email || ''}
+                        onChange={(e) => setEditedLead((prev) => ({ ...prev, email: e.target.value }))}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 mb-0.5 text-[11px] font-medium">City / Location</label>
+                      <input
+                        type="text"
+                        disabled={isEditingLocked}
+                        value={editedLead.location || ''}
+                        onChange={(e) => setEditedLead((prev) => ({ ...prev, location: e.target.value }))}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 mb-0.5 text-[11px] font-medium">Project Installation Location</label>
+                      <input
+                        type="text"
+                        disabled={isEditingLocked}
+                        value={editedLead.project_installation_location || ''}
+                        onChange={(e) =>
+                          setEditedLead((prev) => ({
+                            ...prev,
+                            project_installation_location: e.target.value,
+                          }))
+                        }
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 mb-0.5 text-[11px] font-medium">Google Maps Link</label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="url"
+                          disabled={isEditingLocked}
+                          value={editedLead.location_link || ''}
+                          onChange={(e) =>
+                            setEditedLead((prev) => ({ ...prev, location_link: e.target.value }))
+                          }
+                          placeholder="https://maps.google.com/..."
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs text-xs"
+                        />
+                        {editedLead.location_link && (
+                          <a
+                            href={editedLead.location_link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-blue-700 shadow-xs shrink-0"
+                            title="Open Map Link"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2 lg:col-span-3">
+                      <label className="block text-slate-600 mb-0.5 text-[11px] font-medium">Premises Full Address</label>
+                      <input
+                        type="text"
+                        disabled={isEditingLocked}
+                        value={editedLead.address || ''}
+                        onChange={(e) => setEditedLead((prev) => ({ ...prev, address: e.target.value }))}
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs text-xs"
+                      />
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* B2B Commercial Credit Terms & Option (Tab 1) */}
-              {lead.customer_type === 'B2B' && (
-                <div className="bg-white border border-indigo-200/80 rounded-xl p-4 space-y-3 shadow-xs">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200/80 pb-3">
-                    <div>
-                      <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                        <DollarSign className="w-4 h-4 text-indigo-600" />
-                        <span>B2B Commercial Terms &amp; Credit Extension</span>
-                      </h3>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Deferred payment credit terms require explicit financial clearance by Company Owner before qualification.
-                      </p>
+                {/* B2B Commercial Credit Compact Summary (Details & Specs) */}
+                {lead.customer_type === 'B2B' && (
+                  <div className="bg-white border border-indigo-200/80 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700 shrink-0">
+                        <DollarSign className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                            B2B Commercial Terms
+                          </span>
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded font-bold border ${
+                              editedLead.b2b_credit_extended === 'YES'
+                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            }`}
+                          >
+                            {editedLead.b2b_credit_extended === 'YES' ? 'Deferred Credit' : '100% Upfront Advance'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {editedLead.b2b_credit_extended === 'YES'
+                            ? `Requested: ${formatINR(editedLead.requested_credit_amount || 0)} (${lead.b2b_credit_days || 30} Days) • Requires Owner Approval`
+                            : 'No credit requested. Lead qualifies directly on upfront/advance milestone payments.'}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-4 text-xs font-semibold">
-                      <label className="flex items-center gap-1.5 text-slate-700 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="b2b_credit_tab1"
-                          value="NO"
-                          disabled={isEditingLocked || updatingCredit}
-                          checked={editedLead.b2b_credit_extended === 'NO'}
-                          onChange={() => handleUpdateCreditExtended('NO')}
-                          className="accent-indigo-600 w-3.5 h-3.5 cursor-pointer"
-                        />
-                        <span>NO (100% Upfront Advance)</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 text-slate-700 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="b2b_credit_tab1"
-                          value="YES"
-                          disabled={isEditingLocked || updatingCredit}
-                          checked={editedLead.b2b_credit_extended === 'YES'}
-                          onChange={() => handleUpdateCreditExtended('YES')}
-                          className="accent-indigo-600 w-3.5 h-3.5 cursor-pointer"
-                        />
-                        <span>YES (Deferred Credit)</span>
-                      </label>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-3 text-xs font-semibold">
+                        <label className="flex items-center gap-1.5 text-slate-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="b2b_credit_tab1"
+                            value="NO"
+                            disabled={isEditingLocked || updatingCredit}
+                            checked={editedLead.b2b_credit_extended === 'NO'}
+                            onChange={() => handleUpdateCreditExtended('NO')}
+                            className="accent-indigo-600 w-3.5 h-3.5 cursor-pointer"
+                          />
+                          <span>NO (100% Advance)</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 text-slate-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="b2b_credit_tab1"
+                            value="YES"
+                            disabled={isEditingLocked || updatingCredit}
+                            checked={editedLead.b2b_credit_extended === 'YES'}
+                            onChange={() => handleUpdateCreditExtended('YES')}
+                            className="accent-indigo-600 w-3.5 h-3.5 cursor-pointer"
+                          />
+                          <span>YES (Credit)</span>
+                        </label>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('commercial')}
+                        className="px-2.5 py-1 text-[11px] text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-semibold shrink-0 cursor-pointer"
+                      >
+                        Commercial Tab &rarr;
+                      </button>
                     </div>
                   </div>
+                )}
 
-                  {editedLead.b2b_credit_extended === 'NO' ? (
-                    <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 text-emerald-800">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                        <span>
-                          <strong>100% Upfront / Milestone Advance Basis:</strong> No credit extended to client. Lead does <strong>not</strong> require Owner Credit Approval to qualify.
-                        </span>
-                      </div>
-                    </div>
+                {/* Dynamic Custom Fields - Compact High-Density Grid */}
+                <div id="custom-fields-section" className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-blue-600" />
+                      <span>{lead.customer_type} Technical &amp; System Specifications</span>
+                    </h3>
+                    <span className="text-[11px] text-slate-400">
+                      {lead.custom_values?.length || 0} Configured Fields
+                    </span>
+                  </div>
+
+                  {!lead.custom_values || lead.custom_values.length === 0 ? (
+                    <p className="text-xs text-slate-500 py-3 text-center">
+                      No custom fields configured for {lead.customer_type}.
+                    </p>
                   ) : (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                          <span className="text-slate-500 block mb-0.5 text-[11px]">Requested Credit Amount</span>
-                          <span className="font-mono font-bold text-slate-900 text-sm">
-                            {formatINR(editedLead.requested_credit_amount || 0)}
-                          </span>
-                        </div>
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                          <span className="text-slate-500 block mb-0.5 text-[11px]">Credit Term</span>
-                          <span className="font-semibold text-slate-900 text-sm">
-                            {lead.b2b_credit_days || 30} Days
-                          </span>
-                        </div>
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                          <span className="text-slate-500 block mb-0.5 text-[11px]">Owner Approval Status</span>
-                          {lead.status === 'OWNER_CREDIT_APPROVAL' ? (
-                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold text-[11px] inline-block">
-                              Awaiting Owner Review
-                            </span>
-                          ) : Number(lead.approved_credit_amount) > 0 ? (
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold text-[11px] inline-block">
-                              Approved: {formatINR(lead.approved_credit_amount)}
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold text-[11px] inline-block">
-                              Approval Required Before YES
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs">
+                      {lead.custom_values.map((field) => {
+                        const isMissing = missingRequirements?.some(
+                          (req) => req.toLowerCase() === (field.label || '').toLowerCase()
+                        );
+                        const currentVal = customFieldEdits[field.field_key] ?? field.value ?? '';
 
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/60">
-                        <p className="text-[11px] text-slate-500">
-                          Credit terms require financial clearance by Company Owner before qualification.
-                        </p>
-                        <div className="flex items-center gap-2">
-                          {lead.status === 'PENDING' && (
-                            <button
-                              type="button"
-                              onClick={() => setShowSubmitCreditModal(true)}
-                              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
-                            >
-                              <DollarSign className="w-3.5 h-3.5" />
-                              <span>Submit Credit to Owner</span>
-                            </button>
-                          )}
-                          {currentUser.role === 'OWNER' && (
-                            <button
-                              type="button"
-                              onClick={() => setShowCreditModal(true)}
-                              className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
-                            >
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>Owner Credit Decision</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                        let parsedOptions: string[] = [];
+                        if (field.options) {
+                          try {
+                            parsedOptions = Array.isArray(field.options)
+                              ? field.options
+                              : JSON.parse(field.options as string);
+                          } catch {
+                            parsedOptions = String(field.options)
+                              .split(',')
+                              .map((s) => s.trim())
+                              .filter(Boolean);
+                          }
+                        }
+
+                        return (
+                          <div
+                            key={field.id}
+                            className={`p-2.5 rounded-xl border transition-all ${
+                              isMissing
+                                ? 'border-amber-400 bg-amber-50/50 ring-2 ring-amber-200'
+                                : 'border-slate-200 bg-slate-50/40'
+                            }`}
+                          >
+                            <label className="block text-slate-700 font-semibold mb-1 text-[11px] truncate">
+                              {field.label}
+                              {field.required_before_yes && (
+                                <span className="text-amber-700 ml-1.5 text-[9px] uppercase font-bold px-1 py-0.2 rounded bg-amber-100">
+                                  Required
+                                </span>
+                              )}
+                            </label>
+
+                            {field.type === 'SELECT' && parsedOptions.length > 0 ? (
+                              <select
+                                disabled={isEditingLocked}
+                                value={currentVal}
+                                onChange={(e) =>
+                                  setCustomFieldEdits((prev) => ({
+                                    ...prev,
+                                    [field.field_key]: e.target.value,
+                                  }))
+                                }
+                                className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs text-xs"
+                              >
+                                <option value="">-- Select {field.label} --</option>
+                                {parsedOptions.map((opt, idx) => (
+                                  <option key={idx} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : field.type === 'NUMBER' ? (
+                              <input
+                                type="number"
+                                step="any"
+                                disabled={isEditingLocked}
+                                value={currentVal}
+                                placeholder={`Enter ${field.label}`}
+                                onChange={(e) =>
+                                  setCustomFieldEdits((prev) => ({
+                                    ...prev,
+                                    [field.field_key]: e.target.value,
+                                  }))
+                                }
+                                className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:border-blue-500 shadow-xs text-xs"
+                              />
+                            ) : field.type === 'TEXTAREA' ? (
+                              <textarea
+                                rows={2}
+                                disabled={isEditingLocked}
+                                value={currentVal}
+                                placeholder={`Enter ${field.label}`}
+                                onChange={(e) =>
+                                  setCustomFieldEdits((prev) => ({
+                                    ...prev,
+                                    [field.field_key]: e.target.value,
+                                  }))
+                                }
+                                className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs text-xs resize-none"
+                              />
+                            ) : (
+                              <input
+                                type="text"
+                                disabled={isEditingLocked}
+                                value={currentVal}
+                                placeholder={`Enter ${field.label}`}
+                                onChange={(e) =>
+                                  setCustomFieldEdits((prev) => ({
+                                    ...prev,
+                                    [field.field_key]: e.target.value,
+                                  }))
+                                }
+                                className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs text-xs"
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
-              )}
-
-              {/* Dynamic Custom Fields */}
-              <div id="custom-fields-section" className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    {lead.customer_type} Configurable Custom Fields
-                  </h3>
-                  <span className="text-[11px] text-slate-500">
-                    Defined by Owner in Master Settings
-                  </span>
-                </div>
-
-                {(!lead.custom_values || lead.custom_values.length === 0) ? (
-                  <p className="text-xs text-slate-500 py-4 text-center">
-                    No custom fields configured for {lead.customer_type}.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    {lead.custom_values.map((field) => {
-                      const isMissing = missingRequirements?.some(
-                        (req) => req.toLowerCase() === (field.label || '').toLowerCase()
-                      );
-                      const currentVal = customFieldEdits[field.field_key] ?? field.value ?? '';
-
-                      let parsedOptions: string[] = [];
-                      if (field.options) {
-                        try {
-                          parsedOptions = Array.isArray(field.options)
-                            ? field.options
-                            : JSON.parse(field.options as string);
-                        } catch {
-                          parsedOptions = String(field.options)
-                            .split(',')
-                            .map((s) => s.trim())
-                            .filter(Boolean);
-                        }
-                      }
-
-                      return (
-                        <div
-                          key={field.id}
-                          className={`p-3 rounded-xl border transition-all ${
-                            isMissing
-                              ? 'border-amber-400 bg-amber-50/50 ring-2 ring-amber-200'
-                              : 'border-slate-200 bg-slate-50/30'
-                          }`}
-                        >
-                          <label className="block text-slate-700 font-semibold mb-1">
-                            {field.label}
-                            {field.required_before_yes && (
-                              <span className="text-amber-700 ml-1.5 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100">
-                                Required for YES
-                              </span>
-                            )}
-                          </label>
-
-                          {field.type === 'SELECT' && parsedOptions.length > 0 ? (
-                            <select
-                              disabled={isEditingLocked}
-                              value={currentVal}
-                              onChange={(e) =>
-                                setCustomFieldEdits((prev) => ({
-                                  ...prev,
-                                  [field.field_key]: e.target.value,
-                                }))
-                              }
-                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs"
-                            >
-                              <option value="">-- Select {field.label} --</option>
-                              {parsedOptions.map((opt, idx) => (
-                                <option key={idx} value={opt}>
-                                  {opt}
-                                </option>
-                              ))}
-                            </select>
-                          ) : field.type === 'NUMBER' ? (
-                            <input
-                              type="number"
-                              step="any"
-                              disabled={isEditingLocked}
-                              value={currentVal}
-                              placeholder={`Enter numeric ${field.label}`}
-                              onChange={(e) =>
-                                setCustomFieldEdits((prev) => ({
-                                  ...prev,
-                                  [field.field_key]: e.target.value,
-                                }))
-                              }
-                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:border-blue-500 shadow-xs"
-                            />
-                          ) : field.type === 'TEXTAREA' ? (
-                            <textarea
-                              rows={2}
-                              disabled={isEditingLocked}
-                              value={currentVal}
-                              placeholder={`Enter ${field.label}`}
-                              onChange={(e) =>
-                                setCustomFieldEdits((prev) => ({
-                                  ...prev,
-                                  [field.field_key]: e.target.value,
-                                }))
-                              }
-                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs resize-none"
-                            />
-                          ) : (
-                            <input
-                              type="text"
-                              disabled={isEditingLocked}
-                              value={currentVal}
-                              placeholder={`Enter ${field.label}`}
-                              onChange={(e) =>
-                                setCustomFieldEdits((prev) => ({
-                                  ...prev,
-                                  [field.field_key]: e.target.value,
-                                }))
-                              }
-                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:border-blue-500 shadow-xs"
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
-            </div>
-          )}
+            )}
 
           {/* TAB 2: Commercial & Quotation */}
           {activeTab === 'commercial' && (
@@ -2089,6 +2348,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
               )}
             </div>
           )}
+          </main>
         </div>
 
         {/* Action Modals */}

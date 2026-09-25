@@ -10,6 +10,9 @@ import {
   User as UserIcon,
   Calendar,
   Edit3,
+  Phone,
+  ChevronRight,
+  DollarSign,
 } from 'lucide-react';
 import { Lead, User } from '../../shared/types';
 import { formatINR } from '../lib/api';
@@ -157,6 +160,17 @@ export const LeadTable: React.FC<LeadTableProps> = ({
     }
   };
 
+  const getTeamBadgeStyle = (team?: string) => {
+    if (!team) return 'bg-slate-100 text-slate-700 border-slate-200';
+    if (team.includes('LEAD')) return 'bg-blue-50 text-blue-700 border-blue-200';
+    if (team.includes('REGISTRATION')) return 'bg-teal-50 text-teal-700 border-teal-200';
+    if (team.includes('DISPATCH')) return 'bg-amber-50 text-amber-700 border-amber-200';
+    if (team.includes('INSTALLATION')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (team.includes('ACCOUNTS')) return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+    if (team === 'OWNER') return 'bg-purple-50 text-purple-700 border-purple-200';
+    return 'bg-slate-100 text-slate-700 border-slate-200';
+  };
+
   return (
     <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs">
       {/* Search & Filter Bar */}
@@ -187,17 +201,42 @@ export const LeadTable: React.FC<LeadTableProps> = ({
             </div>
           )}
 
-          {/* Type Filter */}
-          <select
-            aria-label="Filter by customer type"
-            value={customerTypeFilter}
-            onChange={(e) => setCustomerTypeFilter(e.target.value as any)}
-            className="bg-white border border-slate-300 text-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
-          >
-            <option value="ALL">All Types (B2C & B2B)</option>
-            <option value="B2C">B2C (Residential)</option>
-            <option value="B2B">B2B (Commercial)</option>
-          </select>
+          {/* Customer Type Filter (Segmented Pills as Image Shared) */}
+          <div className="flex bg-slate-200/60 p-1 rounded-xl shrink-0">
+            <button
+              type="button"
+              onClick={() => setCustomerTypeFilter('ALL')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                customerTypeFilter === 'ALL'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setCustomerTypeFilter('B2C')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                customerTypeFilter === 'B2C'
+                  ? 'bg-blue-600 text-white shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              B2C Only
+            </button>
+            <button
+              type="button"
+              onClick={() => setCustomerTypeFilter('B2B')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                customerTypeFilter === 'B2B'
+                  ? 'bg-slate-900 text-white shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              B2B Only
+            </button>
+          </div>
 
           {/* Status Filter */}
           <select
@@ -218,8 +257,121 @@ export const LeadTable: React.FC<LeadTableProps> = ({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Mobile Card List (shown on mobile screens < 768px for optimal touch usability) */}
+      <div className="block md:hidden divide-y divide-slate-100">
+        {filteredLeads.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 text-xs px-4">
+            No leads found matching current filters.
+          </div>
+        ) : (
+          filteredLeads.map((lead) => {
+            const isLeadActionRequired =
+              lead.status !== 'LOST' &&
+              lead.status !== 'SITE_VISIT_PENDING' &&
+              lead.status !== 'ESCALATED_TO_OWNER' &&
+              lead.status !== 'OWNER_CREDIT_APPROVAL' &&
+              ['LEAD', 'LEAD_TEAM'].includes(lead.current_team) &&
+              (Boolean(lead.action_required) || lead.status === 'PENDING');
+
+            return (
+              <div
+                key={`mobile-${lead.id}`}
+                onClick={() => onSelectLead(lead.id)}
+                className="p-3.5 hover:bg-slate-50 active:bg-blue-50/40 transition-colors cursor-pointer space-y-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono font-bold text-blue-600 text-xs bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                      #{lead.lead_number}
+                    </span>
+                    <span className="font-bold text-slate-900 text-sm truncate">
+                      {lead.customer_name}
+                    </span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                      lead.status === 'QUALIFIED'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : lead.status === 'LOST'
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : lead.status === 'SITE_VISIT_PENDING'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : lead.status === 'ESCALATED_TO_OWNER'
+                        ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                        : lead.status === 'OWNER_CREDIT_APPROVAL'
+                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}
+                  >
+                    {lead.status.replace(/_/g, ' ')}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-0.5">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <a
+                      href={`tel:${lead.mobile_number}`}
+                      onClick={(e) => e.stopPropagation()}
+                      title="Tap to call lead"
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-mono text-[11px] font-medium py-0.5"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span>{lead.mobile_number}</span>
+                    </a>
+                    {lead.location && <span className="truncate text-slate-400">• {lead.location}</span>}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {Boolean(lead.capacity_kwp) && (
+                      <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        {lead.capacity_kwp} kWp
+                      </span>
+                    )}
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
+                      {lead.customer_type}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400">Value:</span>
+                    <span className="font-bold text-slate-900 font-mono">
+                      {lead.total_project_value ? formatINR(lead.total_project_value) : '—'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {Boolean(lead.has_follow_up || (Number(lead.follow_up_count) > 0)) && (
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 whitespace-nowrap">
+                        Follow-up ({lead.follow_up_count || 1})
+                      </span>
+                    )}
+                    {isLeadActionRequired && (
+                      <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200 text-[9px] font-extrabold uppercase">
+                        Action Req
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectLead(lead.id);
+                      }}
+                      className="px-3 py-1.5 min-h-[36px] rounded-lg bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 border border-blue-200 font-semibold text-xs flex items-center gap-1"
+                    >
+                      <span>Open</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-blue-500" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider font-semibold border-b border-slate-200">
             <tr>
@@ -227,7 +379,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               <th className="py-3 px-4">Customer</th>
               <th className="py-3 px-4">Type</th>
               <th className="py-3 px-4">Project Value</th>
-              <th className="py-3 px-4">Status & Team</th>
+              <th className="py-3 px-4">Status</th>
+              <th className="py-3 px-4">Team</th>
               {!isLeadUser && <th className="py-3 px-4">Assigned Owner</th>}
               <th className="py-3 px-4">Created (IST)</th>
               <th className="py-3 px-4 text-right">Action</th>
@@ -236,7 +389,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
           <tbody className="divide-y divide-slate-100">
             {filteredLeads.length === 0 ? (
               <tr>
-                <td colSpan={isLeadUser ? 7 : 8} className="py-12 text-center text-slate-400">
+                <td colSpan={isLeadUser ? 8 : 9} className="py-12 text-center text-slate-400">
                   No leads found matching current filters.
                 </td>
               </tr>
@@ -302,7 +455,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                     {formatINR(lead.total_project_value)}
                   </td>
 
-                  {/* Status & Team */}
+                  {/* Status */}
                   <td className="py-3 px-4">
                     <div className="flex flex-col gap-1 items-start">
                       <span
@@ -327,24 +480,34 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                           : lead.status.replace(/_/g, ' ')}
                       </span>
 
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] text-slate-500">Team: {lead.current_team}</span>
-                        {(lead.has_follow_up || (lead.follow_up_count && lead.follow_up_count > 0)) && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-sky-50 text-sky-700 border border-sky-200">
-                            📞 In Follow-up ({lead.follow_up_count || 1})
-                          </span>
-                        )}
-                        {lead.documentation_status === 'PENDING' && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
-                            Docs In-Progress
-                          </span>
-                        )}
-                        {lead.documentation_status === 'COMPLETED' && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            ✓ Docs Complete
-                          </span>
-                        )}
-                      </div>
+                      {lead.documentation_status === 'PENDING' && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                          Docs In-Progress
+                        </span>
+                      )}
+                      {lead.documentation_status === 'COMPLETED' && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          ✓ Docs Complete
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Team */}
+                  <td className="py-3 px-4">
+                    <div className="flex flex-col gap-1 items-start">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${getTeamBadgeStyle(
+                          lead.current_team
+                        )}`}
+                      >
+                        {lead.current_team ? lead.current_team.replace(/_/g, ' ') : '—'}
+                      </span>
+                      {Boolean(lead.has_follow_up || (Number(lead.follow_up_count) > 0)) && (
+                        <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-sky-50 text-sky-700 border border-sky-200 whitespace-nowrap">
+                          📞 In Follow-up ({lead.follow_up_count || 1})
+                        </span>
+                      )}
                     </div>
                   </td>
 

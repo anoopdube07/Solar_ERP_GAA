@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { getDB } from './db/index.ts';
 import { RegistrationService } from './services/registrationService.ts';
+import { seedDummyData } from './seedDummyData.ts';
 
 export async function seedInitialData() {
   const db = await getDB();
@@ -768,6 +769,12 @@ export async function seedInitialData() {
     }
   } catch (e) {
     console.warn('[Seed] Notice initializing registration & installation sample data:', e);
+  }
+
+  try {
+    await seedDummyData();
+  } catch (err) {
+    console.error('[Seed] Error running seedDummyData:', err);
   }
 
   console.log('[Seed] Master data ready.');

@@ -26,6 +26,9 @@ import {
   Send,
   CheckSquare,
   Square,
+  Maximize2,
+  Minimize2,
+  ArrowLeft,
 } from 'lucide-react';
 import {
   RegistrationLeadItem,
@@ -89,6 +92,7 @@ export const RegistrationTaskModal: React.FC<RegistrationTaskModalProps> = ({
       : 'NO'
   );
   const [updatingLoan, setUpdatingLoan] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(true);
 
   // Fetch tasks and installation details for lead
   const fetchTasks = async () => {
@@ -232,41 +236,62 @@ export const RegistrationTaskModal: React.FC<RegistrationTaskModalProps> = ({
         });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200/80 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs ${
+        isFullScreen ? 'p-0' : 'p-3 sm:p-4 overflow-y-auto'
+      }`}
+    >
+      <div
+        className={`bg-white shadow-2xl border border-slate-200/80 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 transition-all ${
+          isFullScreen
+            ? 'w-full h-full rounded-none'
+            : 'rounded-2xl w-full max-w-5xl max-h-[92vh]'
+        }`}
+      >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-indigo-50/30 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs">
+        <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-indigo-50/30 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            {/* Quick Back button */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 -ml-1 text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition-colors flex items-center gap-1 text-xs font-semibold"
+              title="Return to Registration Workspace"
+            >
+              <ArrowLeft className="w-5 h-5 text-slate-700" />
+              <span className="hidden md:inline">Back</span>
+            </button>
+
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs flex-shrink-0">
               <FileText className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <h2 className="text-sm sm:text-lg font-bold text-slate-900 truncate max-w-[180px] sm:max-w-md">
                   {leadItem.customer_name}
                 </h2>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
                   LD-{leadItem.lead_number}
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
                   {leadItem.customer_type}
                 </span>
                 {leadItem.is_delayed && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> Overdue SLA ({leadItem.days_in_stage}d)
+                  <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1 shrink-0">
+                    <AlertTriangle className="w-3 h-3" /> Overdue ({leadItem.days_in_stage}d)
                   </span>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[11px] sm:text-xs text-slate-500">
                 <span className="flex items-center gap-1">
                   <Phone className="w-3.5 h-3.5 text-slate-400" /> {leadItem.mobile_number}
                 </span>
                 {leadItem.location && (
-                  <span className="flex items-center gap-1">
+                  <span className="hidden xs:flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-slate-400" /> {leadItem.location}
                   </span>
                 )}
-                <span className="font-medium text-slate-700">
+                <span className="font-semibold text-slate-700">
                   Value: {formatINR(leadItem.total_project_value)}
                 </span>
                 {leadItem.customer_type === 'B2C' ? (
@@ -276,7 +301,7 @@ export const RegistrationTaskModal: React.FC<RegistrationTaskModalProps> = ({
                       type="button"
                       disabled={updatingLoan}
                       onClick={handleToggleLoan}
-                      className={`font-bold px-2 py-0.5 rounded text-[10px] border transition-colors flex items-center gap-1 cursor-pointer ${
+                      className={`font-bold px-1.5 sm:px-2 py-0.5 rounded text-[10px] border transition-colors flex items-center gap-1 cursor-pointer ${
                         loanRequiredState === 'YES'
                           ? 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200'
                           : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
@@ -290,13 +315,13 @@ export const RegistrationTaskModal: React.FC<RegistrationTaskModalProps> = ({
                     </button>
                   </span>
                 ) : (
-                  <span className="text-slate-400 text-[11px]">B2B Direct</span>
+                  <span className="text-slate-400 text-[11px] hidden sm:inline">B2B Direct</span>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {onOpenLeadDetails && (
               <button
                 type="button"
@@ -304,16 +329,32 @@ export const RegistrationTaskModal: React.FC<RegistrationTaskModalProps> = ({
                   onClose();
                   onOpenLeadDetails(leadItem.id);
                 }}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors shadow-2xs"
                 title="View full project details & quotation"
               >
                 <ExternalLink className="w-3.5 h-3.5" /> Full ECP Details
               </button>
             )}
+
+            {/* Toggle Full Screen / Contained view */}
+            <button
+              type="button"
+              onClick={() => setIsFullScreen(!isFullScreen)}
+              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors hidden sm:flex items-center justify-center"
+              title={isFullScreen ? 'Exit Full Window' : 'Expand to Full Window'}
+            >
+              {isFullScreen ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
+              )}
+            </button>
+
             <button
               type="button"
               onClick={onClose}
               className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -321,13 +362,13 @@ export const RegistrationTaskModal: React.FC<RegistrationTaskModalProps> = ({
         </div>
 
         {/* Stage Stepper / Progress Bar */}
-        <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-200">
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="px-3 sm:px-5 py-2.5 sm:py-3 bg-slate-50/80 border-b border-slate-200 overflow-x-auto no-scrollbar">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3 min-w-[340px]">
             {/* Step 1: Registration 1 */}
             <button
               type="button"
               onClick={() => setActiveStageTab('REGISTRATION_1')}
-              className={`p-2.5 rounded-xl border text-left transition-all relative ${
+              className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all relative ${
                 activeStageTab === 'REGISTRATION_1'
                   ? 'bg-white border-indigo-500 shadow-sm ring-1 ring-indigo-500'
                   : 'bg-white/70 border-slate-200 hover:bg-white'
@@ -342,14 +383,14 @@ export const RegistrationTaskModal: React.FC<RegistrationTaskModalProps> = ({
                       1
                     </div>
                   )}
-                  <span className="text-xs font-bold text-slate-800">Registration 1</span>
+                  <span className="text-xs font-bold text-slate-800 truncate">Reg 1</span>
                 </div>
                 <span className="text-[10px] font-semibold text-slate-500">
-                  {reg1Stats.completed}/{reg1Stats.total} Done
+                  {reg1Stats.completed}/{reg1Stats.total}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1 truncate">
-                Consumer Request, CVA & Feasibility
+              <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 truncate hidden xs:block">
+                Consumer Request, CVA
               </p>
             </button>
 
@@ -357,7 +398,7 @@ export const RegistrationTaskModal: React.FC<RegistrationTaskModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveStageTab('NET_METERING')}
-              className={`p-2.5 rounded-xl border text-left transition-all relative ${
+              className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all relative ${
                 activeStageTab === 'NET_METERING'
                   ? 'bg-white border-indigo-500 shadow-sm ring-1 ring-indigo-500'
                   : 'bg-white/70 border-slate-200 hover:bg-white'
@@ -372,14 +413,14 @@ export const RegistrationTaskModal: React.FC<RegistrationTaskModalProps> = ({
                       2
                     </div>
                   )}
-                  <span className="text-xs font-bold text-slate-800">Net Metering</span>
+                  <span className="text-xs font-bold text-slate-800 truncate">Net Meter</span>
                 </div>
                 <span className="text-[10px] font-semibold text-slate-500">
-                  {netStats.completed}/{netStats.total} Done
+                  {netStats.completed}/{netStats.total}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1 truncate">
-                DCR, Approvals & Meter Sync
+              <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 truncate hidden xs:block">
+                DCR, Approvals & Sync
               </p>
             </button>
 
@@ -387,7 +428,7 @@ export const RegistrationTaskModal: React.FC<RegistrationTaskModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveStageTab('REGISTRATION_2')}
-              className={`p-2.5 rounded-xl border text-left transition-all relative ${
+              className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all relative ${
                 activeStageTab === 'REGISTRATION_2'
                   ? 'bg-white border-indigo-500 shadow-sm ring-1 ring-indigo-500'
                   : 'bg-white/70 border-slate-200 hover:bg-white'
@@ -402,14 +443,14 @@ export const RegistrationTaskModal: React.FC<RegistrationTaskModalProps> = ({
                       3
                     </div>
                   )}
-                  <span className="text-xs font-bold text-slate-800">Registration 2</span>
+                  <span className="text-xs font-bold text-slate-800 truncate">Reg 2</span>
                 </div>
                 <span className="text-[10px] font-semibold text-slate-500">
-                  {reg2Stats.completed}/{reg2Stats.total} Done
+                  {reg2Stats.completed}/{reg2Stats.total}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1 truncate">
-                Asset Creation & Completion
+              <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 sm:mt-1 truncate hidden xs:block">
+                Asset & Completion
               </p>
             </button>
           </div>

@@ -158,7 +158,7 @@ export const ECPDocumentWorkspace: React.FC<ECPDocumentWorkspaceProps> = ({
     <div className="space-y-6 text-slate-900">
       {/* Stage Status Header Banner */}
       <div
-        className={`p-5 rounded-2xl border ${
+        className={`p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border ${
           isHandedOff
             ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
             : inDocumentationStage
@@ -166,25 +166,25 @@ export const ECPDocumentWorkspace: React.FC<ECPDocumentWorkspaceProps> = ({
             : 'bg-slate-50 border-slate-200 text-slate-800'
         }`}
       >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-start gap-3">
             {isHandedOff ? (
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
-                <ShieldCheck className="w-6 h-6" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
             ) : inDocumentationStage ? (
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
-                <FileCheck className="w-6 h-6" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+                <FileCheck className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center flex-shrink-0">
-                <Layers className="w-6 h-6" />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center flex-shrink-0">
+                <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
             )}
 
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base text-slate-900">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-snug">
                   {isHandedOff
                     ? 'Registration 1 Handoff Completed'
                     : inDocumentationStage
@@ -192,7 +192,7 @@ export const ECPDocumentWorkspace: React.FC<ECPDocumentWorkspaceProps> = ({
                     : 'Pre-Qualification Document Checklist'}
                 </h3>
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  className={`self-start sm:self-auto text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
                     isHandedOff
                       ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                       : inDocumentationStage
@@ -204,7 +204,7 @@ export const ECPDocumentWorkspace: React.FC<ECPDocumentWorkspaceProps> = ({
                 </span>
               </div>
 
-              <p className="text-xs text-slate-600 mt-1">
+              <p className="text-[11px] sm:text-xs text-slate-600 mt-1 leading-relaxed">
                 {isHandedOff
                   ? 'All required ECP documentation has been verified and completed. The Lead is currently active under Registration 1.'
                   : inDocumentationStage
@@ -216,18 +216,18 @@ export const ECPDocumentWorkspace: React.FC<ECPDocumentWorkspaceProps> = ({
 
           {/* Quick Metrics Pill */}
           {checklist && (
-            <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-xs flex-shrink-0">
-              <div className="text-center pr-3 border-r border-slate-200">
-                <div className="text-xs text-slate-500 uppercase font-semibold">Rules</div>
-                <div className="text-lg font-black text-slate-900">
+            <div className="flex items-center justify-around sm:justify-start gap-3 bg-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-slate-200 shadow-xs flex-shrink-0 w-full md:w-auto">
+              <div className="text-center pr-3 border-r border-slate-200 flex-1 sm:flex-initial">
+                <div className="text-[10px] sm:text-xs text-slate-500 uppercase font-semibold">Rules</div>
+                <div className="text-base sm:text-lg font-black text-slate-900">
                   {checklist.satisfied_rules_count} / {checklist.total_applicable_rules}
                 </div>
               </div>
 
-              <div className="text-center pl-1">
-                <div className="text-xs text-slate-500 uppercase font-semibold">Gate Status</div>
+              <div className="text-center pl-1 flex-1 sm:flex-initial">
+                <div className="text-[10px] sm:text-xs text-slate-500 uppercase font-semibold">Gate Status</div>
                 <div
-                  className={`text-xs font-bold flex items-center gap-1 ${
+                  className={`text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1 ${
                     checklist.is_gate_satisfied ? 'text-emerald-600' : 'text-amber-600'
                   }`}
                 >

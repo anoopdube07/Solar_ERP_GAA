@@ -13,6 +13,9 @@ import {
   Shield,
   Plus,
   Crosshair,
+  Maximize2,
+  Minimize2,
+  ArrowLeft,
 } from 'lucide-react';
 import { apiRequest } from '../lib/api';
 import { SiteVisit, User, ExtraMaterial } from '../../shared/types';
@@ -83,6 +86,7 @@ export const SiteVisitModal: React.FC<SiteVisitModalProps> = ({
   const [photos, setPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(mode === 'COMPLETE');
 
   // Filter only active installation members
   const installationMembers = users.filter(
@@ -288,37 +292,71 @@ export const SiteVisitModal: React.FC<SiteVisitModalProps> = ({
   const isCompleteMode = mode === 'COMPLETE';
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div
+      className={`fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center ${
+        isFullScreen ? 'p-0' : 'p-2 sm:p-4 overflow-y-auto'
+      }`}
+    >
       <div
-        className={`bg-white border border-slate-200 rounded-2xl w-full ${
-          isCompleteMode ? 'max-w-2xl max-h-[92vh]' : 'max-w-lg'
-        } overflow-hidden shadow-2xl text-slate-900 flex flex-col my-auto`}
+        className={`bg-white border border-slate-200 overflow-hidden shadow-2xl text-slate-900 flex flex-col transition-all ${
+          isFullScreen
+            ? 'w-full h-full rounded-none'
+            : isCompleteMode
+            ? 'rounded-2xl w-full max-w-2xl max-h-[92vh] my-auto'
+            : 'rounded-2xl w-full max-w-lg my-auto'
+        }`}
       >
-        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 shadow-xs">
+        <div className="p-3 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/90 shrink-0 gap-2">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            {isFullScreen && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 -ml-1 text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 rounded-xl transition-colors flex items-center gap-1 text-xs font-semibold"
+                title="Return"
+              >
+                <ArrowLeft className="w-5 h-5 text-slate-700" />
+                <span className="hidden sm:inline">Back</span>
+              </button>
+            )}
+            <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 shadow-xs shrink-0">
               <Compass className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate">
                 {mode === 'REQUEST' && 'Request B2C Site Visit'}
                 {mode === 'ASSIGN' && 'Assign Site Visit Member'}
                 {mode === 'COMPLETE' && 'Complete Site Visit Survey & Technical Specs'}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">
                 {mode === 'REQUEST' && 'Hand off to Installation Manager for site assessment'}
                 {mode === 'ASSIGN' && 'Delegate to an active Installation Team Member'}
                 {mode === 'COMPLETE' && 'Record structure height, cables, materials, and geo-tagged photos'}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsFullScreen(!isFullScreen)}
+              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors hidden sm:flex items-center justify-center"
+              title={isFullScreen ? 'Exit Full Window' : 'Expand to Full Window'}
+            >
+              {isFullScreen ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 rounded-lg transition-colors"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">

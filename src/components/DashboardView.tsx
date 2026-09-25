@@ -71,13 +71,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onRefresh,
 }) => {
   const isExecutive = currentUser?.role === 'OWNER' || currentUser?.role === 'MANAGER';
+  const isLeadUser = currentUser?.role === 'LEAD';
   const [dashboardMode, setDashboardMode] = useState<'EXECUTIVE' | 'PIPELINE' | 'BOTH'>(
     isExecutive ? 'EXECUTIVE' : 'PIPELINE'
   );
-  const [activeTabSection, setActiveTabSection] = useState<'ALL' | 'B2C' | 'B2B'>('ALL');
+  const [activeTabSection, setActiveTabSection] = useState<'ALL' | 'B2C' | 'B2B'>(() =>
+    currentUser?.role === 'LEAD' ? 'B2C' : 'ALL'
+  );
   const [todayFollowUps, setTodayFollowUps] = useState<TodayFollowUpItem[]>([]);
   const [loadingFollowUps, setLoadingFollowUps] = useState(false);
   const [showFollowUpsDrawer, setShowFollowUpsDrawer] = useState(false);
+
+  // Sync default tab section when user changes
+  useEffect(() => {
+    if (currentUser?.role === 'LEAD') {
+      setActiveTabSection('B2C');
+    }
+  }, [currentUser?.role]);
 
   // Fetch today's followups
   useEffect(() => {
@@ -142,10 +152,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     const qualifiedLeads = typeLeads.filter(
       (l) =>
-        l.status === 'QUALIFIED' ||
-        l.status === 'DOCUMENTATION_COMPLETE' ||
-        (l.project_stage && !['LEAD', 'LOST'].includes(l.project_stage)) ||
-        !['LEAD', 'LEAD_TEAM'].includes(l.current_team)
+        (l.status === 'QUALIFIED' ||
+          l.status === 'DOCUMENTATION_COMPLETE' ||
+          (l.project_stage && !['LEAD', 'LOST'].includes(l.project_stage))) &&
+        l.status !== 'SITE_VISIT_PENDING' &&
+        l.status !== 'LOST' &&
+        l.status !== 'PENDING' &&
+        l.status !== 'ESCALATED_TO_OWNER'
     );
 
     const qualifiedTotal = serverType?.qualified_total ?? qualifiedLeads.length;
@@ -375,22 +388,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
 
           {/* Ultra-Compact Pipeline Header & Quick Actions Toolbar */}
-          <div className="bg-white rounded-xl border border-slate-200/90 px-3.5 py-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`w-8 h-8 rounded-lg text-white flex items-center justify-center font-black text-sm shadow-xs ${
-                  isExecutive ? 'bg-indigo-600' : 'bg-blue-600'
-                }`}
-              >
-                {isExecutive ? 'EP' : 'L'}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base font-extrabold text-slate-900 tracking-tight leading-none">
+          <div className="bg-white rounded-xl border border-slate-200/90 p-2.5 sm:px-3.5 sm:py-2.5 shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-2.5">
+            <div className="flex items-center justify-between sm:justify-start gap-2.5">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <div
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-white flex items-center justify-center font-black text-xs sm:text-sm shadow-xs shrink-0 ${
+                    isExecutive ? 'bg-indigo-600' : 'bg-blue-600'
+                  }`}
+                >
+                  {isExecutive ? 'EP' : 'L'}
+                </div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <h1 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight leading-none">
                     {isExecutive ? 'Lead Operations Pipeline' : 'Lead Team Dashboard'}
                   </h1>
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                    className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${
                       isExecutive
                         ? 'bg-purple-50 text-purple-700 border-purple-200'
                         : 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -399,97 +412,109 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     {isExecutive ? 'Executive Oversight' : 'IST Active'}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 leading-tight mt-0.5">
-                  Direct pipeline tracking for B2C Residential &amp; B2B Commercial projects
-                </p>
               </div>
+
+              {/* Mobile quick "+ New Lead" button */}
+              <button
+                type="button"
+                onClick={onOpenCreateLead}
+                className="sm:hidden flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>New Lead</span>
+              </button>
             </div>
 
-        {/* View Switcher & Quick Actions */}
-        <div className="flex items-center gap-2">
-          {/* Segmented View Control */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-            <button
-              type="button"
-              onClick={() => setActiveTabSection('ALL')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                activeTabSection === 'ALL'
-                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Side-by-Side
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTabSection('B2C')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                activeTabSection === 'B2C'
-                  ? 'bg-blue-600 text-white shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              B2C Only
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTabSection('B2B')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                activeTabSection === 'B2B'
-                  ? 'bg-slate-900 text-white shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              B2B Only
-            </button>
+            {/* View Switcher & Quick Actions */}
+            <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+              {/* Segmented View Control */}
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs flex-1 sm:flex-initial">
+                <button
+                  type="button"
+                  onClick={() => setActiveTabSection('ALL')}
+                  className={`flex-1 sm:flex-initial text-center px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-md text-[11px] font-semibold transition-all ${
+                    activeTabSection === 'ALL'
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="sm:hidden">All</span>
+                  <span className="hidden sm:inline">Side-by-Side</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTabSection('B2C')}
+                  className={`flex-1 sm:flex-initial text-center px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-md text-[11px] font-semibold transition-all ${
+                    activeTabSection === 'B2C'
+                      ? 'bg-blue-600 text-white shadow-2xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="sm:hidden">B2C</span>
+                  <span className="hidden sm:inline">B2C Only</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTabSection('B2B')}
+                  className={`flex-1 sm:flex-initial text-center px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-md text-[11px] font-semibold transition-all ${
+                    activeTabSection === 'B2B'
+                      ? 'bg-slate-900 text-white shadow-2xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="sm:hidden">B2B</span>
+                  <span className="hidden sm:inline">B2B Only</span>
+                </button>
+              </div>
+
+              {/* Quick Action Buttons */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={onOpenCreateLead}
+                  className="hidden sm:flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>New Lead</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowFollowUpsDrawer(!showFollowUpsDrawer)}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                    todayFollowUps.length > 0
+                      ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+                      : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                  }`}
+                  title="View today's scheduled client follow-ups"
+                >
+                  <Phone className="w-3.5 h-3.5 text-indigo-600" />
+                  <span className="hidden xs:inline sm:inline">Calls</span>
+                  <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-600 text-white">
+                    {todayFollowUps.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onViewAllLeads}
+                  className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors"
+                >
+                  <Users className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Leads</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onNavigateToTab?.('ecp_projects')}
+                  className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors"
+                >
+                  <Layers className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Projects</span>
+                </button>
+              </div>
+            </div>
           </div>
-
-          {/* Quick Action Buttons */}
-          <button
-            type="button"
-            onClick={onOpenCreateLead}
-            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Lead</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowFollowUpsDrawer(!showFollowUpsDrawer)}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-              todayFollowUps.length > 0
-                ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
-                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-            }`}
-            title="View today's scheduled client follow-ups"
-          >
-            <Phone className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Today's Calls</span>
-            <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-600 text-white">
-              {todayFollowUps.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onViewAllLeads}
-            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors"
-          >
-            <Users className="w-3.5 h-3.5 text-slate-500" />
-            <span>Leads</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onNavigateToTab?.('ecp_projects')}
-            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors"
-          >
-            <Layers className="w-3.5 h-3.5 text-slate-500" />
-            <span>Projects</span>
-          </button>
-        </div>
-      </div>
 
       {/* 2. Today's Follow-ups Collapsible / Notification Strip (Minimizes scrolling impact) */}
       {showFollowUpsDrawer && (

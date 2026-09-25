@@ -101,7 +101,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
              fu_next.next_follow_up_remarks,
              CASE
                WHEN l.status = 'LOST' THEN 'LOST'
-               WHEN l.status NOT IN ('QUALIFIED', 'DOCUMENTATION_COMPLETE') AND l.current_team IN ('LEAD', 'LEAD_TEAM') THEN 'LEAD'
+               WHEN l.status NOT IN ('QUALIFIED', 'DOCUMENTATION_COMPLETE') THEN 'LEAD'
                WHEN (l.status = 'QUALIFIED' OR l.documentation_status = 'PENDING') AND l.current_team IN ('LEAD', 'LEAD_TEAM') THEN 'IN_DOCS'
                WHEN l.current_team IN ('DISPATCH', 'DISPATCH_TEAM') THEN 'DISPATCH'
                WHEN l.current_team IN ('INSTALLATION_MANAGER', 'INSTALLATION_TEAM') THEN 'INSTALLATION'
