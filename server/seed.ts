@@ -201,6 +201,8 @@ export async function seedInitialData() {
     { username: 'accountant', name: 'Kavita Shah (Accounts Exec)', role: 'ACCOUNTS' },
     { username: 'dispatch1', name: 'Dinesh Rathore (Dispatch Exec)', role: 'DISPATCH' },
     { username: 'dispatch', name: 'Dinesh Rathore (Dispatch Exec)', role: 'DISPATCH' },
+    { username: 'service1', name: 'Vikram Joshi (Service Desk)', role: 'SERVICE' },
+    { username: 'service', name: 'Vikram Joshi (Service Desk)', role: 'SERVICE' },
   ];
 
   let primaryOwnerId: string | null = null;
@@ -775,6 +777,198 @@ export async function seedInitialData() {
     await seedDummyData();
   } catch (err) {
     console.error('[Seed] Error running seedDummyData:', err);
+  }
+
+  // 6. Seed sample after-sales service complaints if table is empty
+  try {
+    const existingComplaints = await db.query('SELECT COUNT(*) as count FROM service_complaints');
+    if (parseInt(existingComplaints.rows[0].count, 10) === 0) {
+      console.log('[Seed] Seeding sample after-sales complaints...');
+      const techUserRes = await db.query(`SELECT id, name FROM users WHERE role = 'INSTALLATION_MEMBER' LIMIT 1`);
+      const serviceUserRes = await db.query(`SELECT id, name FROM users WHERE role = 'SERVICE' LIMIT 1`);
+      const techId = techUserRes.rows[0]?.id || null;
+      const techName = techUserRes.rows[0]?.name || 'Vikas Singh (Field Tech)';
+      const serviceUserId = serviceUserRes.rows[0]?.id || null;
+
+      const sampleComplaints = [
+        {
+          id: crypto.randomUUID(),
+          ticket_number: 'SRV-2026-001',
+          customer_name: 'Rajesh Gupta',
+          customer_phone: '9845012345',
+          customer_email: 'rajesh.gupta@example.com',
+          customer_address: 'Plot 45, Golden Palms Layout, Sarjapur Road',
+          city: 'Bengaluru',
+          system_capacity_kw: 5.0,
+          inverter_brand_model: 'Growatt 5000TL3-S 3-Phase',
+          inverter_serial: 'GW5K-2024-88391',
+          commissioning_date: '2025-06-15',
+          category: 'INVERTER_FAULT',
+          priority: 'HIGH',
+          status: 'ASSIGNED',
+          title: 'Inverter error code F08 / Grid Overvoltage tripping',
+          description: 'Inverter displays Error F08 and disconnects from grid during peak solar generation (12:30 PM to 2:00 PM). Local DISCOM line voltage fluctuates around 258V.',
+          reported_channel: 'PHONE',
+          reported_at: 'NOW() - INTERVAL \'18 hours\'',
+          sla_due_at: 'NOW() + INTERVAL \'30 hours\'',
+          assigned_to_user_id: techId,
+          assigned_to_name: techName,
+          assigned_at: 'NOW() - INTERVAL \'12 hours\'',
+          assignment_notes: 'Please visit sarjapur site with digital multimeter to verify AC voltage tapped at distribution board.',
+          is_warranty_claim: false,
+        },
+        {
+          id: crypto.randomUUID(),
+          ticket_number: 'SRV-2026-002',
+          customer_name: 'Anita Sharma',
+          customer_phone: '9811223344',
+          customer_email: 'anita.s@example.com',
+          customer_address: 'B-12, Sector 14, Urban Estate',
+          city: 'Gurugram',
+          system_capacity_kw: 3.3,
+          inverter_brand_model: 'Solis 3.3kW Single Phase Dual MPPT',
+          inverter_serial: 'SOL-3K-9921',
+          commissioning_date: '2025-09-10',
+          category: 'APP_OFFLINE',
+          priority: 'MEDIUM',
+          status: 'OPEN',
+          title: 'Inverter Wi-Fi Dongle offline after home broadband router change',
+          description: 'Customer updated home Airtel Xstream fiber router. Mobile monitoring app shows offline status for past 4 days. Need remote Wi-Fi re-configuration support.',
+          reported_channel: 'WHATSAPP',
+          reported_at: 'NOW() - INTERVAL \'6 hours\'',
+          sla_due_at: 'NOW() + INTERVAL \'66 hours\'',
+          assigned_to_user_id: null,
+          assigned_to_name: null,
+          assigned_at: null,
+          assignment_notes: null,
+          is_warranty_claim: false,
+        },
+        {
+          id: crypto.randomUUID(),
+          ticket_number: 'SRV-2026-003',
+          customer_name: 'Apex Industrial Textiles Ltd',
+          customer_phone: '9820055443',
+          customer_email: 'maintenance@apextextiles.in',
+          customer_address: 'Survey 104, Industrial Corridor, Peenya',
+          city: 'Bengaluru',
+          system_capacity_kw: 40.0,
+          inverter_brand_model: 'Sungrow 40kW Commercial Inverter',
+          inverter_serial: 'SG-40K-00214',
+          commissioning_date: '2025-03-20',
+          category: 'GENERATION_DROP',
+          priority: 'CRITICAL',
+          status: 'IN_PROGRESS',
+          title: 'String 2 showing 35% lower current on DC Combiner Box',
+          description: 'Factory plant engineer reported String 2 generation dropped from 18A to 11A. Suspected loose MC4 connector or micro-crack on western roof array.',
+          reported_channel: 'PORTAL',
+          reported_at: 'NOW() - INTERVAL \'14 hours\'',
+          sla_due_at: 'NOW() + INTERVAL \'10 hours\'',
+          assigned_to_user_id: techId,
+          assigned_to_name: techName,
+          assigned_at: 'NOW() - INTERVAL \'13 hours\'',
+          assignment_notes: 'Urgent commercial customer. Field team dispatched with thermal imaging camera and clamp meter.',
+          is_warranty_claim: false,
+        },
+        {
+          id: crypto.randomUUID(),
+          ticket_number: 'SRV-2026-004',
+          customer_name: 'Sunil Kulkarni',
+          customer_phone: '9448112233',
+          customer_email: 'sunil.kulkarni@example.com',
+          customer_address: 'Shanti Nagar, 3rd Cross',
+          city: 'Hubballi',
+          system_capacity_kw: 5.5,
+          inverter_brand_model: 'Growatt 5000TL3-S',
+          inverter_serial: 'GW5K-8812',
+          commissioning_date: '2025-01-18',
+          category: 'WIRING_LEAKAGE',
+          priority: 'HIGH',
+          status: 'RESOLVED',
+          title: 'ACDB Breaker tripping intermittently during morning startup',
+          description: 'Morning solar energization caused 32A C-Curve MCB in ACDB to trip repeatedly.',
+          reported_channel: 'PHONE',
+          reported_at: 'NOW() - INTERVAL \'3 days\'',
+          sla_due_at: 'NOW() - INTERVAL \'1 day\'',
+          assigned_to_user_id: techId,
+          assigned_to_name: techName,
+          assigned_at: 'NOW() - INTERVAL \'2 days\'',
+          assignment_notes: 'Investigate AC isolator and circuit breaker terminals.',
+          technician_visit_date: '2026-09-24',
+          root_cause: 'Loose screw connection on ACDB phase connector caused terminal overheating and thermal magnetic tripping.',
+          action_taken: 'Replaced charred 32A MCB with industrial grade Schneider 32A 10kA breaker. Re-crimped copper ferrules and tightened torque.',
+          parts_replaced: '1x 32A 4-Pole MCB Schneider Acti9, 4x copper insulated ferrules',
+          resolution_notes: 'System re-tested under 4.8kW full load. No heat signature detected. Customer signed off on delivery slip.',
+          resolved_at: 'NOW() - INTERVAL \'12 hours\'',
+          resolved_by: techId,
+          customer_rating: 5,
+          customer_feedback: 'Prompt visit and professional repair work. Very satisfied with solar service team!',
+          is_warranty_claim: true,
+          warranty_claim_number: 'CLM-SCH-2026-09',
+        }
+      ];
+
+      for (const comp of sampleComplaints) {
+        await db.query(`
+          INSERT INTO service_complaints (
+            id, ticket_number, customer_name, customer_phone, customer_email,
+            customer_address, city, system_capacity_kw, inverter_brand_model, inverter_serial,
+            commissioning_date, category, priority, status, title, description,
+            reported_channel, reported_at, sla_due_at, assigned_to_user_id, assigned_to_name,
+            assigned_at, assignment_notes, technician_visit_date, root_cause, action_taken,
+            parts_replaced, resolution_notes, resolved_at, resolved_by, customer_rating,
+            customer_feedback, is_warranty_claim, warranty_claim_number, created_by, created_at, updated_at
+          ) VALUES (
+            $1, $2, $3, $4, $5,
+            $6, $7, $8, $9, $10,
+            $11, $12, $13, $14, $15, $16,
+            $17, ${comp.reported_at}, ${comp.sla_due_at}, $18, $19,
+            ${comp.assigned_at ? comp.assigned_at : 'NULL'}, $20, $21, $22, $23,
+            $24, $25, ${comp.resolved_at ? comp.resolved_at : 'NULL'}, $26, $27,
+            $28, $29, $30, $31, ${comp.reported_at}, NOW()
+          )
+        `, [
+          comp.id, comp.ticket_number, comp.customer_name, comp.customer_phone, comp.customer_email,
+          comp.customer_address, comp.city, comp.system_capacity_kw, comp.inverter_brand_model, comp.inverter_serial,
+          comp.commissioning_date, comp.category, comp.priority, comp.status, comp.title, comp.description,
+          comp.reported_channel, comp.assigned_to_user_id, comp.assigned_to_name,
+          comp.assignment_notes, comp.technician_visit_date || null, comp.root_cause || null, comp.action_taken || null,
+          comp.parts_replaced || null, comp.resolution_notes || null, comp.resolved_by || null, comp.customer_rating || null,
+          comp.customer_feedback || null, comp.is_warranty_claim, comp.warranty_claim_number || null, serviceUserId
+        ]);
+
+        // Add initial activity
+        await db.query(`
+          INSERT INTO service_complaint_activities (
+            id, complaint_id, actor_name, action_type, new_status, notes, created_at
+          ) VALUES (
+            $1, $2, 'Vikram Joshi (Service Desk)', 'CREATED', 'OPEN', 'Customer complaint logged in service system.', ${comp.reported_at}
+          )
+        `, [crypto.randomUUID(), comp.id]);
+
+        if (comp.assigned_to_user_id) {
+          await db.query(`
+            INSERT INTO service_complaint_activities (
+              id, complaint_id, actor_name, action_type, old_status, new_status, notes, created_at
+            ) VALUES (
+              $1, $2, 'Vikram Joshi (Service Desk)', 'ASSIGNED', 'OPEN', 'ASSIGNED', $3, ${comp.assigned_at || 'NOW()'}
+            )
+          `, [crypto.randomUUID(), comp.id, `Ticket assigned to technician ${comp.assigned_to_name}.`]);
+        }
+
+        if (comp.status === 'RESOLVED') {
+          await db.query(`
+            INSERT INTO service_complaint_activities (
+              id, complaint_id, actor_name, action_type, old_status, new_status, notes, created_at
+            ) VALUES (
+              $1, $2, $3, 'RESOLVED', 'ASSIGNED', 'RESOLVED', $4, ${comp.resolved_at || 'NOW()'}
+            )
+          `, [crypto.randomUUID(), comp.id, comp.assigned_to_name, `Issue resolved: ${comp.resolution_notes}`]);
+        }
+      }
+      console.log('[Seed] Sample after-sales complaints ready.');
+    }
+  } catch (err) {
+    console.warn('[Seed] Notice initializing service complaints:', err);
   }
 
   console.log('[Seed] Master data ready.');

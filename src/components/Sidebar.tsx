@@ -23,6 +23,7 @@ import {
   Building2,
   Truck,
   Navigation,
+  Headphones,
 } from 'lucide-react';
 import { User, UserRole } from '../../shared/types';
 
@@ -71,6 +72,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
               id: 'dispatch',
               label: 'Dispatch Queue',
               icon: Truck,
+            },
+          ],
+        },
+      ];
+    }
+
+    if (role === 'SERVICE') {
+      return [
+        {
+          title: 'After-Sales Desk',
+          items: [
+            {
+              id: 'complaints',
+              label: 'Service & Complaints',
+              icon: Headphones,
+            },
+            {
+              id: 'ecp_projects',
+              label: 'Customer Projects',
+              icon: Layers,
             },
           ],
         },
@@ -154,6 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {
           title: 'Operations & Insights',
           items: [
+            { id: 'complaints', label: 'Service & Complaints', icon: Headphones },
             { id: 'registration', label: 'Registration Queue', icon: FileText },
             { id: 'accounts', label: 'Accounts & Receipts', icon: Receipt },
             { id: 'dispatch', label: 'Dispatch & Logistics', icon: Truck },
@@ -183,6 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           items: [
             { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { id: 'leads', label: 'Lead', icon: Users },
+            { id: 'complaints', label: 'Service & Complaints', icon: Headphones },
             { id: 'accounts', label: 'Accounts Desk', icon: Receipt },
             { id: 'dispatch', label: 'Dispatch & Logistics', icon: Truck },
             { id: 'registration', label: 'Registration Queue', icon: FileText },
@@ -207,6 +230,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           title: 'Operations Command',
           items: [
             { id: 'installation_command', label: 'Control Centre', icon: LayoutDashboard },
+            { id: 'complaints', label: 'Service Tickets', icon: Headphones },
             { id: 'ecp_projects', label: 'All Projects', icon: Layers },
           ],
         },
@@ -219,6 +243,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         title: 'Field Execution',
         items: [
           { id: 'installation_command', label: 'Control Centre', icon: LayoutDashboard },
+          { id: 'complaints', label: 'Service Calls', icon: Headphones },
         ],
       },
     ];
@@ -251,6 +276,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: Briefcase,
           colorClass: 'bg-blue-500/10 text-blue-400 border-blue-500/25',
         };
+      case 'SERVICE':
+        return {
+          label: 'Service & Support Desk',
+          icon: Headphones,
+          colorClass: 'bg-amber-500/10 text-amber-400 border-amber-500/25',
+        };
       case 'INSTALLATION_MANAGER':
         return {
           label: 'Installation Manager',
@@ -274,6 +305,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Accounts Team',
           icon: Receipt,
           colorClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25',
+        };
+      case 'DISPATCH':
+        return {
+          label: 'Dispatch Team',
+          icon: Truck,
+          colorClass: 'bg-amber-500/10 text-amber-400 border-amber-500/25',
         };
       case 'LEAD':
       default:

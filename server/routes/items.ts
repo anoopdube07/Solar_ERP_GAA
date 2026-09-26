@@ -10,15 +10,20 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const db = await getDB();
     const isOwnerOrManager = req.user?.role === 'OWNER' || req.user?.role === 'MANAGER';
-    const { include_inactive } = req.query;
+    const { include_inactive, active } = req.query;
 
-    let query = 'SELECT * FROM items';
-    if (!isOwnerOrManager || include_inactive !== 'true') {
-      query += ' WHERE active = true';
+    let query = 'SELECT * FROM items WHERE deleted_at IS NULL';
+    const params: any[] = [];
+
+    if (active !== undefined && active !== 'ALL' && active !== '') {
+      params.push(active === 'true');
+      query += ` AND active = $${params.length}`;
+    } else if (!isOwnerOrManager || include_inactive !== 'true') {
+      query += ' AND active = true';
     }
     query += ' ORDER BY name ASC';
 
-    const result = await db.query(query);
+    const result = await db.query(query, params);
     res.json({ items: result.rows });
   } catch (err: any) {
     console.error('Error fetching items:', err);
@@ -102,6 +107,33 @@ router.put('/:id', requireAuth, requireRole('OWNER'), async (req: AuthenticatedR
   } catch (err: any) {
     console.error('Error updating item:', err);
     res.status(500).json({ error: 'Failed to update item.' });
+  }
+});
+
+// Delete item (OWNER ONLY)
+router.delete('/:id', requireAuth, requireRole('OWNER'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const db = await getDB();
+    const itemRes = await db.query('SELECT * FROM items WHERE id = $1 AND deleted_at IS NULL', [id]);
+    if (itemRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Item not found or already deleted.' });
+    }
+
+    const item = itemRes.rows[0];
+
+    // Soft delete to protect past quotations and records
+    await db.query(
+      `UPDATE items SET active = false, deleted_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    res.json({
+      message: `Item "${item.name}" deleted successfully. Historical quotation records preserved.`,
+    });
+  } catch (err: any) {
+    console.error('Error deleting item:', err);
+    res.status(500).json({ error: 'Failed to delete item.' });
   }
 });
 

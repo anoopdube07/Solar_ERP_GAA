@@ -18,6 +18,7 @@ import registrationRoutes from './server/routes/registration.ts';
 import installationRoutes from './server/routes/installation.ts';
 import accountsRoutes from './server/routes/accounts.ts';
 import dispatchRoutes from './server/routes/dispatch.ts';
+import complaintsRoutes from './server/routes/complaints.ts';
 
 async function startServer() {
   const app = express();
@@ -68,6 +69,7 @@ async function startServer() {
   app.use('/api/installation', installationRoutes);
   app.use('/api/accounts', accountsRoutes);
   app.use('/api/dispatch', dispatchRoutes);
+  app.use('/api/complaints', complaintsRoutes);
 
   // Fallback 404 handler for unknown /api/* endpoints (prevents falling through to Vite's index.html)
   app.all('/api/*', (_req, res) => {

@@ -351,11 +351,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isInitialized, onSuccess }
                 <button
                   type="button"
                   onClick={() => handleQuickLogin('dispatch', 'DISPATCH')}
-                  className="col-span-2 p-2.5 bg-slate-50 hover:bg-amber-50/70 border border-slate-200/80 hover:border-amber-300/80 rounded-xl text-left transition-all text-slate-700 hover:text-slate-900 flex items-center justify-between group shadow-2xs active:scale-[0.98] cursor-pointer"
+                  className="p-2.5 bg-slate-50 hover:bg-amber-50/70 border border-slate-200/80 hover:border-amber-300/80 rounded-xl text-left transition-all text-slate-700 hover:text-slate-900 flex items-center justify-between group shadow-2xs active:scale-[0.98] cursor-pointer"
                 >
                   <span className="font-semibold text-xs">🚚 Dispatch Team</span>
                   <span className="text-[10px] font-mono font-bold text-slate-500 group-hover:text-amber-800 bg-white group-hover:bg-amber-100/70 border border-slate-200/70 group-hover:border-amber-200/80 px-1.5 py-0.5 rounded-md transition-colors">
                     dispatch
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('service1', 'SERVICE')}
+                  className="p-2.5 bg-slate-50 hover:bg-amber-50/70 border border-slate-200/80 hover:border-amber-300/80 rounded-xl text-left transition-all text-slate-700 hover:text-slate-900 flex items-center justify-between group shadow-2xs active:scale-[0.98] cursor-pointer"
+                >
+                  <span className="font-semibold text-xs">🎧 Service Desk</span>
+                  <span className="text-[10px] font-mono font-bold text-slate-500 group-hover:text-amber-800 bg-white group-hover:bg-amber-100/70 border border-slate-200/70 group-hover:border-amber-200/80 px-1.5 py-0.5 rounded-md transition-colors">
+                    service1
                   </span>
                 </button>
               </div>

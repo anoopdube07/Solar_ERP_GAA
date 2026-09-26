@@ -6,7 +6,8 @@ export type UserRole =
   | 'INSTALLATION_MEMBER'
   | 'REGISTRATION'
   | 'ACCOUNTS'
-  | 'DISPATCH';
+  | 'DISPATCH'
+  | 'SERVICE';
 
 export type CustomerType = 'B2C' | 'B2B';
 
@@ -60,6 +61,7 @@ export interface User {
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
+  deleted_at?: string | null;
 }
 
 export interface Item {
@@ -71,6 +73,7 @@ export interface Item {
   active: boolean;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface Uom {
@@ -80,6 +83,7 @@ export interface Uom {
   description: string | null;
   active: boolean;
   created_at: string;
+  deleted_at?: string | null;
 }
 
 export interface CustomFieldDefinition {
@@ -95,6 +99,7 @@ export interface CustomFieldDefinition {
   options: string[];
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface CustomFieldValue {
@@ -389,6 +394,7 @@ export interface DocumentDefinition {
   active: boolean;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface DocumentRequirementRule {
@@ -406,6 +412,7 @@ export interface DocumentRequirementRule {
   updated_at: string;
   items?: DocumentRuleItem[];
   document_definitions?: DocumentDefinition[];
+  deleted_at?: string | null;
 }
 
 export interface DocumentRuleItem {
@@ -512,6 +519,7 @@ export interface RegistrationLeadItem {
   total_project_value: number;
   stage: RegistrationStage;
   current_team: CurrentTeam;
+  dispatch_status?: DispatchStatus;
   assigned_installer_id?: string | null;
   assigned_installer_name?: string | null;
   financing_required: boolean;
@@ -858,6 +866,91 @@ export interface DispatchMetrics {
   delivered_count: number;
   b2c_total: number;
   b2b_total: number;
+}
+
+export type ComplaintPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export type ComplaintStatus =
+  | 'OPEN'
+  | 'ASSIGNED'
+  | 'IN_PROGRESS'
+  | 'WAITING_PARTS'
+  | 'RESOLVED'
+  | 'CLOSED';
+
+export type ComplaintCategory =
+  | 'INVERTER_FAULT'
+  | 'GENERATION_DROP'
+  | 'PHYSICAL_DAMAGE'
+  | 'GRID_TRIPPING'
+  | 'NET_METER_ISSUE'
+  | 'WIRING_LEAKAGE'
+  | 'APP_OFFLINE'
+  | 'OTHER';
+
+export interface ServiceComplaint {
+  id: string;
+  ticket_number: string;
+  lead_id?: string | null;
+  customer_name: string;
+  customer_phone: string;
+  customer_email?: string | null;
+  customer_address?: string | null;
+  city?: string | null;
+  system_capacity_kw?: number | null;
+  inverter_brand_model?: string | null;
+  inverter_serial?: string | null;
+  commissioning_date?: string | null;
+  category: ComplaintCategory;
+  priority: ComplaintPriority;
+  status: ComplaintStatus;
+  title: string;
+  description: string;
+  reported_channel: string;
+  reported_at: string;
+  sla_due_at: string;
+  assigned_to_user_id?: string | null;
+  assigned_to_name?: string | null;
+  assigned_at?: string | null;
+  assignment_notes?: string | null;
+  technician_visit_date?: string | null;
+  root_cause?: string | null;
+  action_taken?: string | null;
+  parts_replaced?: string | null;
+  is_warranty_claim: boolean;
+  warranty_claim_number?: string | null;
+  resolution_notes?: string | null;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
+  customer_rating?: number | null;
+  customer_feedback?: string | null;
+  closed_at?: string | null;
+  closed_by?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  activities?: ServiceComplaintActivity[];
+}
+
+export interface ServiceComplaintActivity {
+  id: string;
+  complaint_id: string;
+  actor_id?: string | null;
+  actor_name: string;
+  action_type: string;
+  old_status?: string | null;
+  new_status?: string | null;
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface ServiceMetrics {
+  total_complaints: number;
+  open_unassigned: number;
+  in_progress: number;
+  waiting_parts: number;
+  resolved_count: number;
+  sla_breached: number;
 }
 
 

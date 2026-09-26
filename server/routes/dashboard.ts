@@ -16,6 +16,12 @@ const getMetricsHandler = async (req: AuthenticatedRequest, res: any) => {
     if (user.role === 'LEAD') {
       params.push(user.id);
       leadScopeWhere = `WHERE (l.owner_id = $${params.length} OR l.created_by = $${params.length})`;
+    } else if (user.role === 'INSTALLATION_MANAGER') {
+      leadScopeWhere = `WHERE (
+        l.customer_type != 'B2C' OR
+        l.dispatch_status = 'DELIVERED' OR
+        EXISTS (SELECT 1 FROM site_visits sv WHERE sv.lead_id = l.id)
+      )`;
     }
 
     // Leads in scope with receipts, follow-ups, and computed project stages

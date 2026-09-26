@@ -29,7 +29,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
     }
 
     const db = await getDB();
-    let query = 'SELECT * FROM lead_custom_field_definitions WHERE 1=1';
+    let query = 'SELECT * FROM lead_custom_field_definitions WHERE deleted_at IS NULL';
     const params: any[] = [];
 
     if (customer_type) {
@@ -228,13 +228,23 @@ router.delete('/:id', requireAuth, requireRole('OWNER'), async (req: Authenticat
     const { id } = req.params;
     const db = await getDB();
 
-    // Soft-deactivate to protect historical values in lead_custom_field_values
+    const existing = await db.query(
+      'SELECT id, label, field_key FROM lead_custom_field_definitions WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Field definition not found or already deleted.' });
+    }
+
+    const field = existing.rows[0];
+
+    // Soft-delete to protect historical values in lead_custom_field_values
     await db.query(
-      'UPDATE lead_custom_field_definitions SET active = false, updated_at = NOW() WHERE id = $1',
+      'UPDATE lead_custom_field_definitions SET active = false, deleted_at = NOW(), updated_at = NOW() WHERE id = $1',
       [id]
     );
 
-    res.json({ message: 'Custom field deactivated successfully.' });
+    res.json({ message: `Custom field "${field.label}" deleted successfully. Historical values preserved.` });
   } catch (err: any) {
     console.error('Error deleting custom field:', err);
     res.status(500).json({ error: 'Failed to delete custom field.' });

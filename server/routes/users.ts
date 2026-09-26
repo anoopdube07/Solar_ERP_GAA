@@ -16,6 +16,7 @@ const VALID_ROLES: UserRole[] = [
   'REGISTRATION',
   'ACCOUNTS',
   'DISPATCH',
+  'SERVICE',
 ];
 
 // Get all users
@@ -25,7 +26,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
     const currentUser = req.user!;
 
     const { role, active } = req.query;
-    let query = `SELECT id, username, name, role, active, created_at, updated_at, last_login_at FROM users WHERE 1=1`;
+    let query = `SELECT id, username, name, role, active, created_at, updated_at, last_login_at, deleted_at FROM users WHERE deleted_at IS NULL`;
     const params: any[] = [];
 
     if (role && VALID_ROLES.includes(role as UserRole)) {
@@ -33,7 +34,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       query += ` AND role = $${params.length}`;
     }
 
-    if (active !== undefined) {
+    if (active !== undefined && active !== 'ALL' && active !== '') {
       params.push(active === 'true');
       query += ` AND active = $${params.length}`;
     }
@@ -104,10 +105,10 @@ router.post('/', requireAuth, requireRole('OWNER'), async (req: AuthenticatedReq
 router.put('/:id', requireAuth, requireRole('OWNER'), async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
-    const { name, role, active } = req.body;
+    const { name, username, role, active } = req.body;
 
     const db = await getDB();
-    const userRes = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+    const userRes = await db.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [id]);
     if (userRes.rows.length === 0) {
       return res.status(404).json({ error: 'User not found.' });
     }
@@ -117,7 +118,7 @@ router.put('/:id', requireAuth, requireRole('OWNER'), async (req: AuthenticatedR
     // Protect last active owner from being deactivated or downgraded
     if (targetUser.role === 'OWNER' && (active === false || (role && role !== 'OWNER'))) {
       const ownerCountRes = await db.query(
-        `SELECT COUNT(*) as count FROM users WHERE role = 'OWNER' AND active = true AND id != $1`,
+        `SELECT COUNT(*) as count FROM users WHERE role = 'OWNER' AND active = true AND deleted_at IS NULL AND id != $1`,
         [id]
       );
       if (parseInt(ownerCountRes.rows[0].count, 10) === 0) {
@@ -133,6 +134,19 @@ router.put('/:id', requireAuth, requireRole('OWNER'), async (req: AuthenticatedR
     if (name !== undefined) {
       params.push(name.trim());
       updates.push(`name = $${params.length}`);
+    }
+
+    if (username !== undefined && username.trim().toLowerCase() !== targetUser.username) {
+      const cleanUsername = username.trim().toLowerCase();
+      const existing = await db.query(
+        'SELECT id FROM users WHERE username = $1 AND id != $2 AND deleted_at IS NULL',
+        [cleanUsername, id]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(400).json({ error: 'Username already in use by another user.' });
+      }
+      params.push(cleanUsername);
+      updates.push(`username = $${params.length}`);
     }
 
     if (role !== undefined) {
@@ -171,6 +185,55 @@ router.put('/:id', requireAuth, requireRole('OWNER'), async (req: AuthenticatedR
   } catch (err: any) {
     console.error('Error updating user:', err);
     res.status(500).json({ error: 'Failed to update user.' });
+  }
+});
+
+// Delete user (OWNER ONLY)
+router.delete('/:id', requireAuth, requireRole('OWNER'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const currentUser = req.user!;
+
+    if (id === currentUser.id) {
+      return res.status(400).json({ error: 'You cannot delete your own account.' });
+    }
+
+    const db = await getDB();
+    const userRes = await db.query('SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL', [id]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found or already deleted.' });
+    }
+
+    const targetUser = userRes.rows[0];
+
+    // Protect sole active owner
+    if (targetUser.role === 'OWNER') {
+      const ownerCountRes = await db.query(
+        `SELECT COUNT(*) as count FROM users WHERE role = 'OWNER' AND active = true AND deleted_at IS NULL AND id != $1`,
+        [id]
+      );
+      if (parseInt(ownerCountRes.rows[0].count, 10) === 0) {
+        return res.status(400).json({
+          error: 'Cannot delete the sole active Owner in the system.',
+        });
+      }
+    }
+
+    // Soft delete user to retain historical integrity for past leads, quotations, and audit logs
+    await db.query(
+      `UPDATE users SET active = false, deleted_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    // Invalidate active sessions
+    await db.query('DELETE FROM sessions WHERE user_id = $1', [id]);
+
+    res.json({
+      message: `User ${targetUser.name} (@${targetUser.username}) deleted successfully. Historical records preserved.`,
+    });
+  } catch (err: any) {
+    console.error('Error deleting user:', err);
+    res.status(500).json({ error: 'Failed to delete user.' });
   }
 });
 

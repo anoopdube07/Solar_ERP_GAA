@@ -8,6 +8,7 @@ import {
 } from '../services/leadService.ts';
 import { recordWorkflowHistory } from '../services/auditService.ts';
 import { checkAndPerformHandoff } from '../services/documentService.ts';
+import { RegistrationService } from '../services/registrationService.ts';
 import { isStrictlyFutureIST } from '../../shared/timezone.ts';
 import type {  CustomerType, TaxMode, YesNo  } from '../../shared/types.ts';
 
@@ -172,6 +173,15 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res) => {
       )`;
     }
 
+    // 4. INSTALLATION_MANAGER role: for B2C leads, only visible if dispatch is complete or has site visit
+    if (user.role === 'INSTALLATION_MANAGER') {
+      query += ` AND (
+        l.customer_type != 'B2C' OR
+        l.dispatch_status = 'DELIVERED' OR
+        EXISTS (SELECT 1 FROM site_visits sv WHERE sv.lead_id = l.id)
+      )`;
+    }
+
     if (status) {
       params.push(status);
       query += ` AND l.status = $${params.length}`;
@@ -276,6 +286,23 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res) => {
       if (!isQualifiedOrHigher) {
         return res.status(403).json({
           error: 'Access denied: Unqualified prospecting leads are restricted to sales representatives on a need-to-know basis.',
+        });
+      }
+    }
+
+    // 4. INSTALLATION_MANAGER role: for B2C leads, only visible if dispatch is complete or has site visit
+    if (user.role === 'INSTALLATION_MANAGER') {
+      const svCheck = await db.query(
+        `SELECT 1 FROM site_visits WHERE lead_id = $1 LIMIT 1`,
+        [id]
+      );
+      const isSiteVisit = svCheck.rows.length > 0;
+      const isDispatchComplete = lead.dispatch_status === 'DELIVERED';
+      const isEligibleB2C = lead.customer_type !== 'B2C' || isDispatchComplete;
+
+      if (!isSiteVisit && !isEligibleB2C) {
+        return res.status(403).json({
+          error: 'Access denied: For B2C projects, lead is not visible to Installation Manager until marked as dispatch complete by Dispatch Team.',
         });
       }
     }
@@ -1216,6 +1243,13 @@ router.post('/:id/assign-installer', requireAuth, async (req: AuthenticatedReque
       return res.status(404).json({ error: 'Lead not found.' });
     }
 
+    const currentLead = leadRes.rows[0];
+    if (currentLead.customer_type === 'B2C' && currentLead.dispatch_status !== 'DELIVERED') {
+      return res.status(400).json({
+        error: 'Cannot assign installation crew: For B2C projects, installation assignment is locked until Dispatch Team marks the project as dispatch complete (Delivered to site).',
+      });
+    }
+
     let installerName: string | null = null;
     if (assigned_installer_id) {
       const userRes = await db.query('SELECT * FROM users WHERE id = $1', [assigned_installer_id]);
@@ -1348,56 +1382,125 @@ router.post('/:id/workflow', requireAuth, async (req: AuthenticatedRequest, res)
       }
 
       if (lead.customer_type === 'B2C') {
-        let handedOffImmediately = false;
+        const b2cRulesRes = await db.query(
+          `SELECT COUNT(*) as count 
+           FROM document_requirement_rules drr
+           JOIN document_rule_items dri ON drr.id = dri.rule_id
+           JOIN document_definitions dd ON dri.document_definition_id = dd.id
+           WHERE drr.active = true 
+             AND drr.deleted_at IS NULL
+             AND dd.active = true 
+             AND dd.deleted_at IS NULL
+             AND (drr.customer_type = 'B2C' OR drr.customer_type = 'BOTH')`
+        );
+        const hasB2CRules = Number(b2cRulesRes.rows[0]?.count || 0) > 0;
 
-        await db.transaction(async (tx) => {
-          await tx.query(
-            `UPDATE leads SET
-              status = 'QUALIFIED',
-              current_team = 'LEAD',
-              documentation_status = 'PENDING',
-              action_required = true,
-              updated_at = NOW()
-            WHERE id = $1`,
-            [id]
-          );
+        if (hasB2CRules) {
+          let handedOffImmediately = false;
 
-          await recordWorkflowHistory(tx, {
-            leadId: id,
-            actorId: user.id,
-            actorName: user.name,
-            eventType: 'LEAD_QUALIFIED',
-            previousState: lead.status,
-            newState: 'QUALIFIED',
-            remarks: `Qualified by ${user.name}. Moving to ECP Documentation stage.`,
-            metadata: {
-              customer_type: 'B2C',
-              total_project_value: lead.total_project_value,
-              documentation_stage: 'PENDING',
-            },
+          await db.transaction(async (tx) => {
+            await tx.query(
+              `UPDATE leads SET
+                status = 'QUALIFIED',
+                current_team = 'LEAD',
+                documentation_status = 'PENDING',
+                action_required = true,
+                updated_at = NOW()
+              WHERE id = $1`,
+              [id]
+            );
+
+            await recordWorkflowHistory(tx, {
+              leadId: id,
+              actorId: user.id,
+              actorName: user.name,
+              eventType: 'LEAD_QUALIFIED',
+              previousState: lead.status,
+              newState: 'QUALIFIED',
+              remarks: `Qualified by ${user.name}. Moving to ECP Documentation stage.`,
+              metadata: {
+                customer_type: 'B2C',
+                total_project_value: lead.total_project_value,
+                documentation_stage: 'PENDING',
+              },
+            });
+
+            // Check if any requirements exist or are already met
+            const handoffCheck = await checkAndPerformHandoff(id, user.id, user.name, tx);
+            handedOffImmediately = handoffCheck.handed_off;
           });
 
-          // Check if any requirements exist or are already met
-          const handoffCheck = await checkAndPerformHandoff(id, user.id, user.name, tx);
-          handedOffImmediately = handoffCheck.handed_off;
-        });
+          const updatedRes = await db.query('SELECT * FROM leads WHERE id = $1', [id]);
+          const updatedLead = updatedRes.rows[0];
 
-        const updatedRes = await db.query('SELECT * FROM leads WHERE id = $1', [id]);
-        const updatedLead = updatedRes.rows[0];
+          return res.json({
+            message: handedOffImmediately
+              ? 'Lead successfully qualified and all document requirements met! Transferred to REGISTRATION_1.'
+              : 'Lead successfully qualified! Now in ECP Documentation stage for required document uploads.',
+            status: updatedLead.status,
+            current_team: updatedLead.current_team,
+            documentation_status: updatedLead.documentation_status,
+          });
+        } else {
+          // Standard B2C qualification without documents (all document definitions inactive in Master Settings) -> Directly to REGISTRATION_1
+          await db.transaction(async (tx) => {
+            await tx.query(
+              `UPDATE leads SET
+                status = 'DOCUMENTATION_COMPLETE',
+                current_team = 'REGISTRATION_1',
+                documentation_status = 'NOT_APPLICABLE',
+                action_required = true,
+                updated_at = NOW()
+              WHERE id = $1`,
+              [id]
+            );
 
-        return res.json({
-          message: handedOffImmediately
-            ? 'Lead successfully qualified and all document requirements met! Transferred to REGISTRATION_1.'
-            : 'Lead successfully qualified! Now in ECP Documentation stage for required document uploads.',
-          status: updatedLead.status,
-          current_team: updatedLead.current_team,
-          documentation_status: updatedLead.documentation_status,
-        });
+            await recordWorkflowHistory(tx, {
+              leadId: id,
+              actorId: user.id,
+              actorName: user.name,
+              eventType: 'LEAD_QUALIFIED',
+              previousState: lead.status,
+              newState: 'DOCUMENTATION_COMPLETE',
+              remarks: `Qualified by ${user.name}. All document definitions are marked inactive in Master Settings. Transferred directly to Registration 1.`,
+              metadata: {
+                customer_type: 'B2C',
+                total_project_value: lead.total_project_value,
+                documentation_stage: 'NOT_APPLICABLE',
+                handed_off_to: 'REGISTRATION_1',
+              },
+            });
+          });
+
+          // Ensure registration tasks are created for Registration 1 team
+          try {
+            await RegistrationService.ensureTasksForLead(id);
+          } catch (e) {
+            console.warn('Failed to initialize registration tasks:', e);
+          }
+
+          const updatedRes = await db.query('SELECT * FROM leads WHERE id = $1', [id]);
+          const updatedLead = updatedRes.rows[0];
+
+          return res.json({
+            message: 'Lead successfully qualified! No active document requirements configured — transferred directly to REGISTRATION_1.',
+            status: updatedLead.status,
+            current_team: updatedLead.current_team,
+            documentation_status: updatedLead.documentation_status,
+          });
+        }
       } else {
         // B2B Customer Flow
         const b2bRulesRes = await db.query(
-          `SELECT COUNT(*) as count FROM document_requirement_rules 
-           WHERE active = true AND (customer_type = 'B2B' OR customer_type = 'BOTH')`
+          `SELECT COUNT(*) as count 
+           FROM document_requirement_rules drr
+           JOIN document_rule_items dri ON drr.id = dri.rule_id
+           JOIN document_definitions dd ON dri.document_definition_id = dd.id
+           WHERE drr.active = true 
+             AND drr.deleted_at IS NULL
+             AND dd.active = true 
+             AND dd.deleted_at IS NULL
+             AND (drr.customer_type = 'B2B' OR drr.customer_type = 'BOTH')`
         );
         const hasB2BRules = Number(b2bRulesRes.rows[0]?.count || 0) > 0;
 

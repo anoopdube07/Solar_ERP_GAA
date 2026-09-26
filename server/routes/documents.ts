@@ -69,13 +69,21 @@ router.get('/definitions', requireAuth, async (req: AuthenticatedRequest, res) =
   try {
     const db = await getDB();
     const customerType = req.query.customer_type as string;
-    let query = 'SELECT * FROM document_definitions';
+    const { active } = req.query;
+
+    let query = 'SELECT * FROM document_definitions WHERE deleted_at IS NULL';
     const params: any[] = [];
 
-    if (customerType) {
-      query += ' WHERE customer_type = $1 OR customer_type = $2';
+    if (customerType && customerType !== 'ALL') {
       params.push(customerType, 'BOTH');
+      query += ` AND (customer_type = $${params.length - 1} OR customer_type = $${params.length})`;
     }
+
+    if (active !== undefined && active !== 'ALL' && active !== '') {
+      params.push(active === 'true');
+      query += ` AND active = $${params.length}`;
+    }
+
     query += ' ORDER BY code ASC, name ASC';
 
     const result = await db.query(query, params);
@@ -95,6 +103,14 @@ router.post('/definitions', requireAuth, requireRole('OWNER'), async (req: Authe
 
     const cleanCode = code.trim().toUpperCase().replace(/\s+/g, '_');
     const db = await getDB();
+
+    const existing = await db.query(
+      'SELECT id FROM document_definitions WHERE code = $1 AND deleted_at IS NULL',
+      [cleanCode]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'A document definition with this code already exists.' });
+    }
 
     const id = crypto.randomUUID();
     const result = await db.query(
@@ -117,11 +133,29 @@ router.post('/definitions', requireAuth, requireRole('OWNER'), async (req: Authe
 router.put('/definitions/:id', requireAuth, requireRole('OWNER'), async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
-    const { name, description, active, customer_type } = req.body;
+    const { code, name, description, active, customer_type } = req.body;
 
     const db = await getDB();
+    const existing = await db.query('SELECT * FROM document_definitions WHERE id = $1 AND deleted_at IS NULL', [id]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Document definition not found.' });
+    }
+
     const updates: string[] = ['updated_at = NOW()'];
     const params: any[] = [id];
+
+    if (code !== undefined && code.trim().toUpperCase().replace(/\s+/g, '_') !== existing.rows[0].code) {
+      const cleanCode = code.trim().toUpperCase().replace(/\s+/g, '_');
+      const dup = await db.query(
+        'SELECT id FROM document_definitions WHERE code = $1 AND id != $2 AND deleted_at IS NULL',
+        [cleanCode, id]
+      );
+      if (dup.rows.length > 0) {
+        return res.status(409).json({ error: 'Code already in use by another document definition.' });
+      }
+      params.push(cleanCode);
+      updates.push(`code = $${params.length}`);
+    }
 
     if (name !== undefined) {
       params.push(name.trim());
@@ -145,14 +179,37 @@ router.put('/definitions/:id', requireAuth, requireRole('OWNER'), async (req: Au
       params
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Document definition not found.' });
-    }
-
     res.json({ definition: result.rows[0] });
   } catch (err: any) {
     console.error('Error updating document definition:', err);
     res.status(500).json({ error: 'Failed to update document definition.' });
+  }
+});
+
+router.delete('/definitions/:id', requireAuth, requireRole('OWNER'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const db = await getDB();
+
+    const existing = await db.query('SELECT * FROM document_definitions WHERE id = $1 AND deleted_at IS NULL', [id]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Document definition not found or already deleted.' });
+    }
+
+    const def = existing.rows[0];
+
+    // Soft delete definition to preserve historical lead_documents
+    await db.query(
+      'UPDATE document_definitions SET active = false, deleted_at = NOW(), updated_at = NOW() WHERE id = $1',
+      [id]
+    );
+
+    res.json({
+      message: `Document definition "${def.name}" deleted successfully. Historical uploaded documents remain preserved.`,
+    });
+  } catch (err: any) {
+    console.error('Error deleting document definition:', err);
+    res.status(500).json({ error: 'Failed to delete document definition.' });
   }
 });
 
@@ -164,14 +221,21 @@ router.get('/rules', requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const db = await getDB();
     const customerType = req.query.customer_type as string;
+    const { active } = req.query;
 
-    let query = 'SELECT * FROM document_requirement_rules';
+    let query = 'SELECT * FROM document_requirement_rules WHERE deleted_at IS NULL';
     const params: any[] = [];
 
-    if (customerType) {
-      query += ' WHERE customer_type = $1 OR customer_type = $2';
+    if (customerType && customerType !== 'ALL') {
       params.push(customerType, 'BOTH');
+      query += ` AND (customer_type = $${params.length - 1} OR customer_type = $${params.length})`;
     }
+
+    if (active !== undefined && active !== 'ALL' && active !== '') {
+      params.push(active === 'true');
+      query += ` AND active = $${params.length}`;
+    }
+
     query += ' ORDER BY display_order ASC, created_at ASC';
 
     const rulesRes = await db.query(query, params);
@@ -183,7 +247,7 @@ router.get('/rules', requireAuth, async (req: AuthenticatedRequest, res) => {
         `SELECT dri.*, dd.code as document_code, dd.name as document_name, dd.active as definition_active
          FROM document_rule_items dri
          JOIN document_definitions dd ON dri.document_definition_id = dd.id
-         WHERE dri.rule_id = $1
+         WHERE dri.rule_id = $1 AND dd.deleted_at IS NULL
          ORDER BY dri.created_at ASC`,
         [rule.id]
       );
@@ -353,6 +417,36 @@ router.put('/rules/:id', requireAuth, requireRole('OWNER'), async (req: Authenti
   } catch (err: any) {
     console.error('Error updating requirement rule:', err);
     res.status(500).json({ error: err.message || 'Failed to update requirement rule.' });
+  }
+});
+
+router.delete('/rules/:id', requireAuth, requireRole('OWNER'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const db = await getDB();
+
+    const existing = await db.query(
+      'SELECT * FROM document_requirement_rules WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Requirement rule not found or already deleted.' });
+    }
+
+    const rule = existing.rows[0];
+
+    // Soft delete rule: applies only to future lead qualifications/evaluations
+    await db.query(
+      'UPDATE document_requirement_rules SET active = false, deleted_at = NOW(), updated_at = NOW() WHERE id = $1',
+      [id]
+    );
+
+    res.json({
+      message: `Requirement rule "${rule.rule_name}" deleted successfully. Historical project records preserved.`,
+    });
+  } catch (err: any) {
+    console.error('Error deleting requirement rule:', err);
+    res.status(500).json({ error: 'Failed to delete requirement rule.' });
   }
 });
 

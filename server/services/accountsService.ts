@@ -130,21 +130,15 @@ export class AccountsService {
       },
     });
 
-    // Auto-evaluate B2C dispatch readiness if cleared receipt
+    // Auto-evaluate B2C dispatch readiness if cleared receipt >= 1 INR
     if (status === 'CLEARED') {
       if (lead.customer_type === 'B2C' && lead.dispatch_status === 'PENDING_ADVANCE') {
-        const isAdvance =
-          params.receipt_type === 'ADVANCE' ||
-          params.receipt_type === 'BANK_LOAN_DISBURSEMENT' ||
-          params.payer_type === 'CUSTOMER' ||
-          params.payer_type === 'BANK';
-
-        if (isAdvance) {
-          // Check if loan is required: advance from Customer or Bank satisfies the rule
+        const amountNum = Number(params.amount) || 0;
+        if (amountNum >= 1) {
           const satisfactionSource =
             params.payer_type === 'BANK' || params.receipt_type === 'BANK_LOAN_DISBURSEMENT'
               ? 'Bank (Loan Disbursement)'
-              : 'Customer (Advance Receipt)';
+              : 'Customer Payment';
 
           await db.query(
             `UPDATE leads 
@@ -155,7 +149,7 @@ export class AccountsService {
              WHERE id = $3 AND dispatch_status = 'PENDING_ADVANCE'`,
             [
               params.actor_id,
-              `Advance payment of ₹${Number(params.amount).toLocaleString('en-IN')} received from ${satisfactionSource}. Hard rule satisfied - cleared for material dispatch.`,
+              `Receipt of ₹${amountNum.toLocaleString('en-IN')} received from ${satisfactionSource}. Hard rule satisfied - cleared for material dispatch.`,
               params.lead_id,
             ]
           );
@@ -167,7 +161,7 @@ export class AccountsService {
             eventType: 'DISPATCH_CLEARED',
             previousState: 'PENDING_ADVANCE',
             newState: 'DISPATCH_CLEARED',
-            remarks: `B2C Advance Hard Rule Satisfied: Advance payment received from ${satisfactionSource}. Project cleared for material dispatch.`,
+            remarks: `B2C Receipt Hard Rule Satisfied: Receipt of ₹${amountNum.toLocaleString('en-IN')} received from ${satisfactionSource}. Project cleared for material dispatch.`,
             metadata: {
               cleared_by: params.actor_name,
               satisfaction_source: satisfactionSource,

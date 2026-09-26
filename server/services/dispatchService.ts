@@ -62,7 +62,7 @@ export class DispatchService {
       FROM leads l
       LEFT JOIN (
         SELECT lead_id,
-               COUNT(*) as receipt_count,
+               COUNT(*) FILTER (WHERE amount >= 1) as receipt_count,
                SUM(amount) as total_received,
                MAX(amount) as max_receipt_amount
         FROM customer_receipts
@@ -176,7 +176,7 @@ export class DispatchService {
       LEFT JOIN (
         SELECT 
           lead_id,
-          COUNT(*) as receipt_count,
+          COUNT(*) FILTER (WHERE amount >= 1) as receipt_count,
           SUM(amount) as total_received,
           SUM(CASE WHEN receipt_type = 'ADVANCE' OR receipt_type = 'BANK_LOAN_DISBURSEMENT' THEN amount ELSE 0 END) as advance_received,
           MAX(amount) as max_receipt_amount,
@@ -286,7 +286,10 @@ export class DispatchService {
               COALESCE(rcp.max_receipt_amount, 0) as max_receipt_amount
        FROM leads l
        LEFT JOIN (
-         SELECT lead_id, COUNT(*) as receipt_count, SUM(amount) as total_received, MAX(amount) as max_receipt_amount
+         SELECT lead_id, 
+                COUNT(*) FILTER (WHERE amount >= 1) as receipt_count, 
+                SUM(amount) as total_received, 
+                MAX(amount) as max_receipt_amount
          FROM customer_receipts
          WHERE status = 'CLEARED'
          GROUP BY lead_id
@@ -304,12 +307,12 @@ export class DispatchService {
     const totalRec = Number(lead.total_received || 0);
     const maxRec = Number(lead.max_receipt_amount || 0);
 
-    // Hard rule check: For B2C project shall no handoff to dispatch until at least one receipt is recorded by accounts for amount not less than Rs. 1.
+    // Hard rule check: For B2C project shall no handoff to dispatch until at least one receipt is recorded by accounts for amount not less than ₹1.
     if (lead.customer_type === 'B2C') {
       const isSatisfied = recCount >= 1 && (maxRec >= 1 || totalRec >= 1);
       if (!isSatisfied) {
         throw new Error(
-          'HARD RULE VIOLATION: For B2C projects, no handoff to dispatch is permitted until at least one receipt is recorded by Accounts for an amount not less than Rs. 1. Please record a receipt in Accounts Desk before handoff.'
+          'HARD RULE VIOLATION: For B2C projects, no handoff to dispatch is permitted until at least one receipt is recorded by Accounts for an amount not less than ₹1. Please record a receipt in Accounts Desk before handoff.'
         );
       }
     }

@@ -3,9 +3,9 @@ import multer from 'multer';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
-import { getDB } from '../db/index.js';
-import { AuthenticatedRequest, requireAuth, requireRole } from '../middleware/auth.js';
-import { recordWorkflowHistory } from '../services/auditService.js';
+import { getDB } from '../db/index.ts';
+import { AuthenticatedRequest, requireAuth, requireRole } from '../middleware/auth.ts';
+import { recordWorkflowHistory } from '../services/auditService.ts';
 
 const router = express.Router();
 

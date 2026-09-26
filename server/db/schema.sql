@@ -3,11 +3,12 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   name TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('OWNER', 'MANAGER', 'LEAD', 'INSTALLATION_MANAGER', 'INSTALLATION_MEMBER', 'REGISTRATION', 'ACCOUNTS', 'DISPATCH')),
+  role TEXT NOT NULL CHECK (role IN ('OWNER', 'MANAGER', 'LEAD', 'INSTALLATION_MANAGER', 'INSTALLATION_MEMBER', 'REGISTRATION', 'ACCOUNTS', 'DISPATCH', 'SERVICE')),
   active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  last_login_at TIMESTAMPTZ
+  last_login_at TIMESTAMPTZ,
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -25,15 +26,18 @@ CREATE TABLE IF NOT EXISTS items (
   default_uom TEXT,
   active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS uoms (
   id TEXT PRIMARY KEY,
+  code TEXT,
   name TEXT UNIQUE NOT NULL,
   description TEXT,
   active BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS lead_custom_field_definitions (
@@ -48,7 +52,8 @@ CREATE TABLE IF NOT EXISTS lead_custom_field_definitions (
   display_order INTEGER NOT NULL DEFAULT 0,
   options_json TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS leads (
@@ -218,7 +223,8 @@ CREATE TABLE IF NOT EXISTS document_definitions (
   customer_type TEXT NOT NULL DEFAULT 'BOTH' CHECK (customer_type IN ('B2C', 'B2B', 'BOTH')),
   active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS document_requirement_rules (
@@ -233,7 +239,8 @@ CREATE TABLE IF NOT EXISTS document_requirement_rules (
   active BOOLEAN NOT NULL DEFAULT true,
   display_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS document_rule_items (
@@ -399,5 +406,71 @@ CREATE TABLE IF NOT EXISTS dispatch_records (
 
 CREATE INDEX IF NOT EXISTS idx_dispatch_records_lead ON dispatch_records(lead_id);
 CREATE INDEX IF NOT EXISTS idx_dispatch_records_status ON dispatch_records(status);
+
+-- ============================================================================
+-- AFTER-SALES SERVICE & COMPLAINTS DESK
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS service_complaints (
+  id TEXT PRIMARY KEY,
+  ticket_number TEXT UNIQUE NOT NULL,
+  lead_id TEXT REFERENCES leads(id) ON DELETE SET NULL,
+  customer_name TEXT NOT NULL,
+  customer_phone VARCHAR(20) NOT NULL,
+  customer_email TEXT,
+  customer_address TEXT,
+  city TEXT,
+  system_capacity_kw NUMERIC(8,2),
+  inverter_brand_model TEXT,
+  inverter_serial TEXT,
+  commissioning_date DATE,
+  category TEXT NOT NULL,
+  priority TEXT NOT NULL CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+  status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_PARTS', 'RESOLVED', 'CLOSED')),
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  reported_channel TEXT NOT NULL DEFAULT 'PHONE',
+  reported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  sla_due_at TIMESTAMPTZ NOT NULL,
+  assigned_to_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  assigned_to_name TEXT,
+  assigned_at TIMESTAMPTZ,
+  assignment_notes TEXT,
+  technician_visit_date DATE,
+  root_cause TEXT,
+  action_taken TEXT,
+  parts_replaced TEXT,
+  is_warranty_claim BOOLEAN NOT NULL DEFAULT false,
+  warranty_claim_number TEXT,
+  resolution_notes TEXT,
+  resolved_at TIMESTAMPTZ,
+  resolved_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  customer_rating INTEGER CHECK (customer_rating >= 1 AND customer_rating <= 5),
+  customer_feedback TEXT,
+  closed_at TIMESTAMPTZ,
+  closed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_complaints_lead ON service_complaints(lead_id);
+CREATE INDEX IF NOT EXISTS idx_service_complaints_status ON service_complaints(status);
+CREATE INDEX IF NOT EXISTS idx_service_complaints_assigned ON service_complaints(assigned_to_user_id);
+CREATE INDEX IF NOT EXISTS idx_service_complaints_priority ON service_complaints(priority);
+
+CREATE TABLE IF NOT EXISTS service_complaint_activities (
+  id TEXT PRIMARY KEY,
+  complaint_id TEXT NOT NULL REFERENCES service_complaints(id) ON DELETE CASCADE,
+  actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  actor_name TEXT NOT NULL,
+  action_type TEXT NOT NULL,
+  old_status TEXT,
+  new_status TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_complaint_activities_comp ON service_complaint_activities(complaint_id);
 
 

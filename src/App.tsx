@@ -15,6 +15,7 @@ import { RegistrationWorkspace } from './components/RegistrationWorkspace';
 import { InstallationManagerWorkspace } from './components/InstallationManagerWorkspace';
 import { AccountsWorkspace } from './components/AccountsWorkspace';
 import { DispatchWorkspace } from './components/DispatchWorkspace';
+import { ServiceWorkspace } from './components/ServiceWorkspace';
 import { Clock, Calendar, BarChart3, Plus, ArrowLeft, LayoutDashboard, Users, Layers } from 'lucide-react';
 
 export default function App() {
@@ -59,6 +60,8 @@ export default function App() {
         setActiveTab('dispatch');
       } else if (res.user?.role === 'REGISTRATION') {
         setActiveTab('registration');
+      } else if (res.user?.role === 'SERVICE') {
+        setActiveTab('complaints');
       } else if (res.user?.role === 'INSTALLATION_MANAGER' || res.user?.role === 'INSTALLATION_MEMBER') {
         setActiveTab('installation_command');
       }
@@ -154,6 +157,8 @@ export default function App() {
         setActiveTab('dashboard');
       } else if (res.user?.role === 'REGISTRATION') {
         setActiveTab('registration');
+      } else if (res.user?.role === 'SERVICE') {
+        setActiveTab('complaints');
       } else if (res.user?.role === 'INSTALLATION_MANAGER' || res.user?.role === 'INSTALLATION_MEMBER') {
         setActiveTab('installation_command');
       }
@@ -176,6 +181,8 @@ export default function App() {
           setActiveTab('dispatch');
         } else if (fallbackRes.user?.role === 'REGISTRATION') {
           setActiveTab('registration');
+        } else if (fallbackRes.user?.role === 'SERVICE') {
+          setActiveTab('complaints');
         } else if (fallbackRes.user?.role === 'INSTALLATION_MANAGER' || fallbackRes.user?.role === 'INSTALLATION_MEMBER') {
           setActiveTab('installation_command');
         }
@@ -530,6 +537,16 @@ export default function App() {
                   ? 'transit'
                   : 'all'
               }
+              onOpenLeadDetails={(leadId) => {
+                setSelectedLeadInitialTab(undefined);
+                setSelectedLeadId(leadId);
+              }}
+            />
+          )}
+
+          {activeTab === 'complaints' && (
+            <ServiceWorkspace
+              currentUser={currentUser}
               onOpenLeadDetails={(leadId) => {
                 setSelectedLeadInitialTab(undefined);
                 setSelectedLeadId(leadId);

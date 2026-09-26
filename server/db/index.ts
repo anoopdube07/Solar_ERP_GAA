@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import pg from 'pg';
+import bcrypt from 'bcryptjs';
 import { PGlite } from '@electric-sql/pglite';
 
 export interface DBClient {
@@ -160,7 +161,7 @@ async function initSchema(db: DBClient) {
       }
       try {
         await db.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`);
-        await db.query(`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('OWNER', 'MANAGER', 'LEAD', 'INSTALLATION_MANAGER', 'INSTALLATION_MEMBER', 'REGISTRATION', 'ACCOUNTS', 'DISPATCH'))`);
+        await db.query(`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('OWNER', 'MANAGER', 'LEAD', 'INSTALLATION_MANAGER', 'INSTALLATION_MEMBER', 'REGISTRATION', 'ACCOUNTS', 'DISPATCH', 'SERVICE'))`);
       } catch (e) {
         // Safe ignore
       }
@@ -446,6 +447,115 @@ async function initSchema(db: DBClient) {
             ON CONFLICT (username) DO NOTHING
           `);
         }
+      } catch (e) {
+        // Safe ignore
+      }
+
+      // Ensure service_complaints and activities tables exist
+      try {
+        await db.query(`
+          CREATE TABLE IF NOT EXISTS service_complaints (
+            id TEXT PRIMARY KEY,
+            ticket_number TEXT UNIQUE NOT NULL,
+            lead_id TEXT REFERENCES leads(id) ON DELETE SET NULL,
+            customer_name TEXT NOT NULL,
+            customer_phone VARCHAR(20) NOT NULL,
+            customer_email TEXT,
+            customer_address TEXT,
+            city TEXT,
+            system_capacity_kw NUMERIC(8,2),
+            inverter_brand_model TEXT,
+            inverter_serial TEXT,
+            commissioning_date DATE,
+            category TEXT NOT NULL,
+            priority TEXT NOT NULL CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+            status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_PARTS', 'RESOLVED', 'CLOSED')),
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            reported_channel TEXT NOT NULL DEFAULT 'PHONE',
+            reported_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            sla_due_at TIMESTAMPTZ NOT NULL,
+            assigned_to_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+            assigned_to_name TEXT,
+            assigned_at TIMESTAMPTZ,
+            assignment_notes TEXT,
+            technician_visit_date DATE,
+            root_cause TEXT,
+            action_taken TEXT,
+            parts_replaced TEXT,
+            is_warranty_claim BOOLEAN NOT NULL DEFAULT false,
+            warranty_claim_number TEXT,
+            resolution_notes TEXT,
+            resolved_at TIMESTAMPTZ,
+            resolved_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+            customer_rating INTEGER CHECK (customer_rating >= 1 AND customer_rating <= 5),
+            customer_feedback TEXT,
+            closed_at TIMESTAMPTZ,
+            closed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+            created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_service_complaints_lead ON service_complaints(lead_id);
+          CREATE INDEX IF NOT EXISTS idx_service_complaints_status ON service_complaints(status);
+          CREATE INDEX IF NOT EXISTS idx_service_complaints_assigned ON service_complaints(assigned_to_user_id);
+          CREATE INDEX IF NOT EXISTS idx_service_complaints_priority ON service_complaints(priority);
+
+          CREATE TABLE IF NOT EXISTS service_complaint_activities (
+            id TEXT PRIMARY KEY,
+            complaint_id TEXT NOT NULL REFERENCES service_complaints(id) ON DELETE CASCADE,
+            actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+            actor_name TEXT NOT NULL,
+            action_type TEXT NOT NULL,
+            old_status TEXT,
+            new_status TEXT,
+            notes TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_service_complaint_activities_comp ON service_complaint_activities(complaint_id);
+        `);
+      } catch (e) {
+        // Safe ignore
+      }
+
+      // Ensure default Service Desk user exists with valid credentials
+      try {
+        const passwordHash = bcrypt.hashSync('Solar@123', 10);
+        const serviceUser = await db.query(`SELECT id FROM users WHERE username = 'service1' LIMIT 1`);
+        if (serviceUser.rows.length === 0) {
+          await db.query(`
+            INSERT INTO users (id, username, password_hash, name, role, active, created_at, updated_at)
+            VALUES (
+              'u-service-001',
+              'service1',
+              $1,
+              'Vikram Joshi (Service Desk)',
+              'SERVICE',
+              true,
+              NOW(),
+              NOW()
+            )
+            ON CONFLICT (username) DO NOTHING
+          `, [passwordHash]);
+        } else {
+          await db.query(`UPDATE users SET password_hash = $1, role = 'SERVICE' WHERE username = 'service1'`, [passwordHash]);
+        }
+      } catch (e) {
+        // Safe ignore
+      }
+
+      // Masters soft-delete columns & UOM code migration
+      try {
+        await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+        await db.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+        await db.query(`ALTER TABLE uoms ADD COLUMN IF NOT EXISTS code TEXT`);
+        await db.query(`ALTER TABLE uoms ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+        await db.query(`UPDATE uoms SET code = name WHERE code IS NULL OR code = ''`);
+        await db.query(`ALTER TABLE lead_custom_field_definitions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+        await db.query(`ALTER TABLE document_definitions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+        await db.query(`ALTER TABLE document_requirement_rules ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
       } catch (e) {
         // Safe ignore
       }

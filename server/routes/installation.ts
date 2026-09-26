@@ -83,7 +83,8 @@ router.get('/metrics', requireAuth, async (req: AuthenticatedRequest, res) => {
            COUNT(*) FILTER (WHERE updated_at < NOW() - INTERVAL '5 days' AND status != 'LOST') as delayed
          FROM leads
          WHERE assigned_installer_id = $1
-           AND (status = 'DOCUMENTATION_COMPLETE' OR current_team IN ('INSTALLATION_TEAM', 'INSTALLATION_MANAGER', 'REGISTRATION_1', 'REGISTRATION_TEAM'))`,
+           AND (status = 'DOCUMENTATION_COMPLETE' OR current_team IN ('INSTALLATION_TEAM', 'INSTALLATION_MANAGER', 'REGISTRATION_1', 'REGISTRATION_TEAM'))
+           AND (customer_type != 'B2C' OR dispatch_status = 'DELIVERED')`,
         [user.id]
       );
       const ecpTotal = Number(ecpMemberRes.rows[0]?.total || 0);
@@ -119,14 +120,16 @@ router.get('/metrics', requireAuth, async (req: AuthenticatedRequest, res) => {
     const svCompleted = Number(svRes.rows[0]?.completed || 0);
 
     // 2. ECP Installation projects metrics
+    // For B2C leads: strictly only visible to installation manager once marked as dispatch complete (DELIVERED)
     const ecpRes = await db.query(`
       SELECT 
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE assigned_installer_id IS NULL) as unassigned,
         COUNT(*) FILTER (WHERE updated_at < NOW() - INTERVAL '5 days' AND status != 'LOST') as delayed
       FROM leads
-      WHERE status = 'DOCUMENTATION_COMPLETE'
-         OR current_team IN ('INSTALLATION_TEAM', 'INSTALLATION_MANAGER', 'REGISTRATION_1', 'REGISTRATION_TEAM')
+      WHERE (status = 'DOCUMENTATION_COMPLETE'
+         OR current_team IN ('INSTALLATION_TEAM', 'INSTALLATION_MANAGER', 'REGISTRATION_1', 'REGISTRATION_TEAM'))
+         AND (customer_type != 'B2C' OR dispatch_status = 'DELIVERED')
     `);
     const ecpTotal = Number(ecpRes.rows[0]?.total || 0);
     const ecpUnassigned = Number(ecpRes.rows[0]?.unassigned || 0);
@@ -203,6 +206,7 @@ router.get('/workload', requireAuth, async (req: AuthenticatedRequest, res) => {
         WHERE assigned_installer_id = $1
           AND status != 'LOST'
           AND (status = 'DOCUMENTATION_COMPLETE' OR current_team IN ('INSTALLATION_TEAM', 'INSTALLATION_MANAGER', 'REGISTRATION_1', 'REGISTRATION_TEAM'))
+          AND (customer_type != 'B2C' OR dispatch_status = 'DELIVERED')
       `, [member.id]);
       const activeInst = Number(instCountRes.rows[0]?.count || 0);
 
@@ -221,6 +225,7 @@ router.get('/workload', requireAuth, async (req: AuthenticatedRequest, res) => {
         WHERE assigned_installer_id = $1
           AND status != 'LOST'
           AND updated_at < NOW() - INTERVAL '5 days'
+          AND (customer_type != 'B2C' OR dispatch_status = 'DELIVERED')
       `, [member.id]);
 
       const delayedTotal = Number(delayedSvRes.rows[0]?.count || 0) + Number(delayedInstRes.rows[0]?.count || 0);
@@ -359,6 +364,12 @@ router.get('/queue', requireAuth, async (req: AuthenticatedRequest, res) => {
 
     // --- B. ECP Installation & Net Metering Projects ---
     let regLeads = await RegistrationService.getRegistrationLeads();
+
+    // HARD WORKFLOW RULE: For B2C leads only, lead once qualified and moves to registration 1,
+    // the lead must NOT be visible to installation team manager untill the project is marked
+    // as dispatch complete from dispatch team (DELIVERED), then only it should be visible to
+    // installation team manager user for assignment to installation team member users.
+    regLeads = regLeads.filter(rl => rl.customer_type !== 'B2C' || rl.dispatch_status === 'DELIVERED');
 
     // If technician, strictly filter to ONLY leads assigned to this installer
     if (isTechnician) {

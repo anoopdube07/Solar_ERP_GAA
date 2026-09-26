@@ -13,6 +13,8 @@ import {
   FolderPlus,
   Trash2,
   Tag,
+  Pencil,
+  AlertTriangle,
 } from 'lucide-react';
 import { apiRequest } from '../lib/api';
 import {
@@ -32,12 +34,27 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Status Filters (Default Active)
+  const [defStatusFilter, setDefStatusFilter] = useState<'ACTIVE' | 'INACTIVE' | 'ALL'>('ACTIVE');
+  const [ruleStatusFilter, setRuleStatusFilter] = useState<'ACTIVE' | 'INACTIVE' | 'ALL'>('ACTIVE');
+
   // New Definition Modal
   const [showAddDef, setShowAddDef] = useState(false);
   const [newDefCode, setNewDefCode] = useState('');
   const [newDefName, setNewDefName] = useState('');
   const [newDefDesc, setNewDefDesc] = useState('');
   const [newDefCustomerType, setNewDefCustomerType] = useState<'B2C' | 'B2B' | 'BOTH'>('B2C');
+
+  // Edit Definition State
+  const [editingDef, setEditingDef] = useState<DocumentDefinition | null>(null);
+  const [editDefCode, setEditDefCode] = useState('');
+  const [editDefName, setEditDefName] = useState('');
+  const [editDefDesc, setEditDefDesc] = useState('');
+  const [editDefCustomerType, setEditDefCustomerType] = useState<'B2C' | 'B2B' | 'BOTH'>('B2C');
+  const [editDefActive, setEditDefActive] = useState(true);
+
+  // Delete Definition State
+  const [deletingDef, setDeletingDef] = useState<DocumentDefinition | null>(null);
 
   // New Rule Modal
   const [showAddRule, setShowAddRule] = useState(false);
@@ -50,6 +67,22 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
   const [newRuleExpectedVal, setNewRuleExpectedVal] = useState('');
   const [selectedDefIds, setSelectedDefIds] = useState<string[]>([]);
   const [newRuleOrder, setNewRuleOrder] = useState<number>(0);
+
+  // Edit Rule State
+  const [editingRule, setEditingRule] = useState<DocumentRequirementRule | null>(null);
+  const [editRuleName, setEditRuleName] = useState('');
+  const [editRuleDesc, setEditRuleDesc] = useState('');
+  const [editRuleCustomerType, setEditRuleCustomerType] = useState<'B2C' | 'B2B' | 'BOTH'>('B2C');
+  const [editRuleReqType, setEditRuleReqType] = useState<DocumentRequirementType>('INDIVIDUAL');
+  const [editRuleCondType, setEditRuleCondType] = useState<DocumentConditionType>('ALWAYS');
+  const [editRuleFieldKey, setEditRuleFieldKey] = useState('');
+  const [editRuleExpectedVal, setEditRuleExpectedVal] = useState('');
+  const [editSelectedDefIds, setEditSelectedDefIds] = useState<string[]>([]);
+  const [editRuleOrder, setEditRuleOrder] = useState<number>(0);
+  const [editRuleActive, setEditRuleActive] = useState(true);
+
+  // Delete Rule State
+  const [deletingRule, setDeletingRule] = useState<DocumentRequirementRule | null>(null);
 
   const loadData = async () => {
     try {
@@ -73,6 +106,7 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
     loadData();
   }, []);
 
+  // Handlers for Document Definition
   const handleCreateDefinition = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDefCode || !newDefName) {
@@ -103,6 +137,61 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
     }
   };
 
+  const startEditDef = (def: DocumentDefinition) => {
+    setEditingDef(def);
+    setEditDefCode(def.code);
+    setEditDefName(def.name);
+    setEditDefDesc(def.description || '');
+    setEditDefCustomerType(def.customer_type);
+    setEditDefActive(def.active);
+  };
+
+  const handleUpdateDefinition = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDef) return;
+    if (!editDefCode || !editDefName) {
+      setError('Document Code and Name are required.');
+      return;
+    }
+
+    try {
+      setError(null);
+      await apiRequest(`/api/documents/definitions/${editingDef.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          code: editDefCode,
+          name: editDefName,
+          description: editDefDesc,
+          customer_type: editDefCustomerType,
+          active: editDefActive,
+        }),
+      });
+
+      setSuccessMsg(`Document definition "${editDefName}" updated. Changes apply to future entries.`);
+      setEditingDef(null);
+      loadData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update document definition.');
+    }
+  };
+
+  const handleDeleteDefinition = async () => {
+    if (!deletingDef) return;
+
+    try {
+      setError(null);
+      await apiRequest(`/api/documents/definitions/${deletingDef.id}`, {
+        method: 'DELETE',
+      });
+
+      setSuccessMsg(`Document definition "${deletingDef.name}" deleted. Historical documents remain preserved.`);
+      setDeletingDef(null);
+      loadData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete document definition.');
+    }
+  };
+
   const handleToggleDefActive = async (def: DocumentDefinition) => {
     try {
       setError(null);
@@ -116,6 +205,7 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
     }
   };
 
+  // Handlers for Requirement Rules
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newRuleName) {
@@ -160,6 +250,81 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
     }
   };
 
+  const startEditRule = (rule: DocumentRequirementRule) => {
+    setEditingRule(rule);
+    setEditRuleName(rule.rule_name);
+    setEditRuleDesc(rule.description || '');
+    setEditRuleCustomerType(rule.customer_type);
+    setEditRuleReqType(rule.requirement_type);
+    setEditRuleCondType(rule.condition_type);
+    setEditRuleFieldKey(rule.condition_field_key || '');
+    setEditRuleExpectedVal(rule.condition_expected_value || '');
+    setEditRuleOrder(rule.display_order ?? 0);
+    setEditRuleActive(rule.active);
+    const itemDefIds = rule.items ? rule.items.map((i) => i.document_definition_id) : [];
+    setEditSelectedDefIds(itemDefIds);
+  };
+
+  const handleUpdateRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRule) return;
+    if (!editRuleName) {
+      setError('Rule Name is required.');
+      return;
+    }
+    if (editSelectedDefIds.length === 0) {
+      setError('Please select at least one document definition for this rule.');
+      return;
+    }
+    if (editRuleReqType === 'INDIVIDUAL' && editSelectedDefIds.length > 1) {
+      setError('An INDIVIDUAL requirement rule must link to exactly 1 document definition.');
+      return;
+    }
+
+    try {
+      setError(null);
+      await apiRequest(`/api/documents/rules/${editingRule.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          rule_name: editRuleName,
+          description: editRuleDesc,
+          customer_type: editRuleCustomerType,
+          requirement_type: editRuleReqType,
+          condition_type: editRuleCondType,
+          condition_field_key: editRuleCondType === 'CUSTOM_FIELD_EQUALS' ? editRuleFieldKey : null,
+          condition_expected_value:
+            editRuleCondType === 'CUSTOM_FIELD_EQUALS' ? editRuleExpectedVal : null,
+          document_definition_ids: editSelectedDefIds,
+          display_order: editRuleOrder,
+          active: editRuleActive,
+        }),
+      });
+
+      setSuccessMsg(`Requirement rule "${editRuleName}" updated. Changes apply to future entries.`);
+      setEditingRule(null);
+      loadData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update requirement rule.');
+    }
+  };
+
+  const handleDeleteRule = async () => {
+    if (!deletingRule) return;
+
+    try {
+      setError(null);
+      await apiRequest(`/api/documents/rules/${deletingRule.id}`, {
+        method: 'DELETE',
+      });
+
+      setSuccessMsg(`Requirement rule "${deletingRule.rule_name}" deleted. Historical records preserved.`);
+      setDeletingRule(null);
+      loadData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete requirement rule.');
+    }
+  };
+
   const handleToggleRuleActive = async (rule: DocumentRequirementRule) => {
     try {
       setError(null);
@@ -173,15 +338,28 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
     }
   };
 
+  // Filtered lists
+  const filteredDefinitions = definitions.filter((d) => {
+    if (defStatusFilter === 'ACTIVE') return d.active;
+    if (defStatusFilter === 'INACTIVE') return !d.active;
+    return true;
+  });
+
+  const filteredRules = rules.filter((r) => {
+    if (ruleStatusFilter === 'ACTIVE') return r.active;
+    if (ruleStatusFilter === 'INACTIVE') return !r.active;
+    return true;
+  });
+
   return (
-    <div className="space-y-5">
-      {/* Sub tabs and Action Buttons */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+    <div className="space-y-4">
+      {/* Subtab Navigation and Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setSubTab('rules')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
               subTab === 'rules'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -194,7 +372,7 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
           <button
             type="button"
             onClick={() => setSubTab('definitions')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
               subTab === 'definitions'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -247,25 +425,62 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
       {/* SUBTAB 1: REQUIREMENT RULES */}
       {subTab === 'rules' && (
         <div className="space-y-3.5">
-          <p className="text-xs text-slate-500">
-            Define mandatory and conditional document gates for customer types. Rules support{' '}
-            <strong className="text-slate-800">Individual</strong>,{' '}
-            <strong className="text-slate-800">All Required</strong>, and{' '}
-            <strong className="text-slate-800">Any One Required</strong> satisfaction semantics.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <p className="text-xs text-slate-500">
+              Rules apply to <strong className="text-slate-800">future lead entries</strong> and do not alter past qualified projects.
+            </p>
+
+            {/* Rule Status Filter: Active, Inactive, All (Default Active) */}
+            <div className="flex items-center gap-1 self-start sm:self-auto bg-white p-1 rounded-lg border border-slate-200 shadow-2xs">
+              <span className="text-[11px] font-semibold text-slate-500 px-2">Status:</span>
+              <button
+                type="button"
+                onClick={() => setRuleStatusFilter('ACTIVE')}
+                className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-colors ${
+                  ruleStatusFilter === 'ACTIVE'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Active ({rules.filter((r) => r.active).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setRuleStatusFilter('INACTIVE')}
+                className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-colors ${
+                  ruleStatusFilter === 'INACTIVE'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Inactive ({rules.filter((r) => !r.active).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setRuleStatusFilter('ALL')}
+                className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-colors ${
+                  ruleStatusFilter === 'ALL'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                All ({rules.length})
+              </button>
+            </div>
+          </div>
 
           <div className="space-y-3">
-            {rules.length === 0 ? (
+            {filteredRules.length === 0 ? (
               <div className="p-8 text-center text-slate-400 bg-white border border-slate-200 rounded-2xl">
-                No requirement rules configured yet. Click "Create Rule" to define document requirements.
+                No requirement rules found matching the selected filter ({ruleStatusFilter.toLowerCase()}).
               </div>
             ) : (
-              rules.map((rule) => (
+              filteredRules.map((rule) => (
                 <div
                   key={rule.id}
                   className="p-4 bg-white border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs hover:border-slate-300 transition-colors"
                 >
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-bold text-sm text-slate-900">{rule.rule_name}</span>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold border border-slate-200">
@@ -284,6 +499,15 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
                       </span>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
                         Condition: {rule.condition_type}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          rule.active
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                        }`}
+                      >
+                        {rule.active ? 'ACTIVE' : 'INACTIVE'}
                       </span>
                     </div>
 
@@ -304,30 +528,47 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
                           </span>
                         ))
                       ) : (
-                        <span className="text-[11px] text-rose-500 italic">No documents attached</span>
+                        <span className="text-[11px] text-rose-500 italic">No active documents attached</span>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 self-end sm:self-center">
+                  <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
                     {isOwner ? (
-                      <button
-                        type="button"
-                        onClick={() => handleToggleRuleActive(rule)}
-                        className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900"
-                      >
-                        {rule.active ? (
-                          <>
-                            <ToggleRight className="w-6 h-6 text-emerald-600" />
-                            <span className="text-emerald-700 font-bold">Active</span>
-                          </>
-                        ) : (
-                          <>
-                            <ToggleLeft className="w-6 h-6 text-slate-400" />
-                            <span className="text-slate-500">Inactive</span>
-                          </>
-                        )}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => startEditRule(rule)}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors shadow-2xs"
+                          title="Edit requirement rule"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleRuleActive(rule)}
+                          className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                          title={rule.active ? 'Deactivate rule' : 'Activate rule'}
+                        >
+                          {rule.active ? (
+                            <ToggleRight className="w-5 h-5 text-emerald-600 inline" />
+                          ) : (
+                            <ToggleLeft className="w-5 h-5 text-slate-400 inline" />
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeletingRule(rule)}
+                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors shadow-2xs"
+                          title="Delete requirement rule"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Delete</span>
+                        </button>
+                      </>
                     ) : (
                       <span className="text-xs text-slate-400 italic">Read-only</span>
                     )}
@@ -342,9 +583,49 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
       {/* SUBTAB 2: DOCUMENT DEFINITIONS */}
       {subTab === 'definitions' && (
         <div className="space-y-4">
-          <p className="text-xs text-slate-500">
-            Configure standardized document types that can be attached to requirement rules.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <p className="text-xs text-slate-500">
+              Configure standardized document types that can be attached to requirement rules. Changes apply to future entries.
+            </p>
+
+            {/* Document Definition Status Filter: Active, Inactive, All (Default Active) */}
+            <div className="flex items-center gap-1 self-start sm:self-auto bg-white p-1 rounded-lg border border-slate-200 shadow-2xs">
+              <span className="text-[11px] font-semibold text-slate-500 px-2">Status:</span>
+              <button
+                type="button"
+                onClick={() => setDefStatusFilter('ACTIVE')}
+                className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-colors ${
+                  defStatusFilter === 'ACTIVE'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Active ({definitions.filter((d) => d.active).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDefStatusFilter('INACTIVE')}
+                className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-colors ${
+                  defStatusFilter === 'INACTIVE'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                Inactive ({definitions.filter((d) => !d.active).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDefStatusFilter('ALL')}
+                className={`px-2.5 py-0.5 rounded text-xs font-semibold transition-colors ${
+                  defStatusFilter === 'ALL'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                All ({definitions.length})
+              </button>
+            </div>
+          </div>
 
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
             <table className="w-full text-left text-xs">
@@ -358,14 +639,14 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {definitions.length === 0 ? (
+                {filteredDefinitions.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                      No document definitions found. Click "Add Definition" to register new documents.
+                      No document definitions found for filter ({defStatusFilter.toLowerCase()}).
                     </td>
                   </tr>
                 ) : (
-                  definitions.map((def) => (
+                  filteredDefinitions.map((def) => (
                     <tr key={def.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-4 py-3 font-mono font-bold text-blue-700">
                         <span className="bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[11px]">
@@ -394,19 +675,42 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
                           {def.active ? 'ACTIVE' : 'INACTIVE'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right whitespace-nowrap space-x-1.5">
                         {isOwner ? (
-                          <button
-                            type="button"
-                            onClick={() => handleToggleDefActive(def)}
-                            className="text-slate-400 hover:text-slate-700 p-1"
-                          >
-                            {def.active ? (
-                              <ToggleRight className="w-5 h-5 text-emerald-600 inline" />
-                            ) : (
-                              <ToggleLeft className="w-5 h-5 text-slate-400 inline" />
-                            )}
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startEditDef(def)}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors shadow-2xs"
+                              title="Edit definition"
+                            >
+                              <Pencil className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleToggleDefActive(def)}
+                              className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                              title={def.active ? 'Deactivate definition' : 'Activate definition'}
+                            >
+                              {def.active ? (
+                                <ToggleRight className="w-5 h-5 text-emerald-600 inline" />
+                              ) : (
+                                <ToggleLeft className="w-5 h-5 text-slate-400 inline" />
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setDeletingDef(def)}
+                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors shadow-2xs"
+                              title="Delete definition"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Delete</span>
+                            </button>
+                          </>
                         ) : (
                           <span className="text-xs text-slate-400 italic">Read-only</span>
                         )}
@@ -451,18 +755,7 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Description</label>
-                <textarea
-                  rows={2}
-                  placeholder="Guidance for the lead team..."
-                  value={newRuleDesc}
-                  onChange={(e) => setNewRuleDesc(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">Customer Type *</label>
                   <select
@@ -470,9 +763,9 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
                     onChange={(e) => setNewRuleCustomerType(e.target.value as any)}
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
-                    <option value="B2C">B2C</option>
-                    <option value="B2B">B2B</option>
-                    <option value="BOTH">BOTH</option>
+                    <option value="B2C">B2C (Residential)</option>
+                    <option value="B2B">B2B (Commercial)</option>
+                    <option value="BOTH">BOTH (All Projects)</option>
                   </select>
                 </div>
 
@@ -485,27 +778,25 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
                     onChange={(e) => setNewRuleReqType(e.target.value as any)}
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
-                    <option value="INDIVIDUAL">INDIVIDUAL (Single Document)</option>
-                    <option value="ALL_REQUIRED">ALL REQUIRED (All Selected Docs)</option>
-                    <option value="ANY_ONE_REQUIRED">ANY ONE REQUIRED (Any 1 of Selected)</option>
+                    <option value="INDIVIDUAL">INDIVIDUAL (Single specific document)</option>
+                    <option value="ALL_REQUIRED">ALL_REQUIRED (Every linked document must be uploaded)</option>
+                    <option value="ANY_ONE_REQUIRED">ANY_ONE_REQUIRED (Any one linked document satisfies rule)</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Condition *</label>
+                  <label className="block text-slate-700 font-semibold mb-1">Condition Gate *</label>
                   <select
                     value={newRuleCondType}
                     onChange={(e) => setNewRuleCondType(e.target.value as any)}
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
-                    <option value="ALWAYS">ALWAYS (Unconditional)</option>
-                    <option value="IF_LOAN_REQUIRED">IF_LOAN_REQUIRED (When Solar Loan = YES)</option>
-                    <option value="IF_CREDIT_EXTENDED">
-                      IF_CREDIT_EXTENDED (When Credit = YES)
-                    </option>
-                    <option value="CUSTOM_FIELD_EQUALS">CUSTOM_FIELD_EQUALS</option>
+                    <option value="ALWAYS">ALWAYS (Mandatory for all)</option>
+                    <option value="IF_LOAN_REQUIRED">IF_LOAN_REQUIRED (Only when Solar Loan is YES)</option>
+                    <option value="IF_CREDIT_EXTENDED">IF_CREDIT_EXTENDED (Only when Credit is YES)</option>
+                    <option value="CUSTOM_FIELD_EQUALS">CUSTOM_FIELD_EQUALS (Dynamic match)</option>
                   </select>
                 </div>
 
@@ -521,73 +812,93 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
               </div>
 
               {newRuleCondType === 'CUSTOM_FIELD_EQUALS' && (
-                <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">Field Key</label>
+                    <label className="block text-slate-700 font-semibold mb-1">Custom Field Key *</label>
                     <input
                       type="text"
-                      placeholder="e.g. roof_type"
+                      placeholder="e.g. meter_phase"
                       value={newRuleFieldKey}
                       onChange={(e) => setNewRuleFieldKey(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-700 font-semibold mb-1">Expected Value</label>
+                    <label className="block text-slate-700 font-semibold mb-1">Expected Value *</label>
                     <input
                       type="text"
-                      placeholder="e.g. Commercial RCC"
+                      placeholder="e.g. Three Phase"
                       value={newRuleExpectedVal}
                       onChange={(e) => setNewRuleExpectedVal(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900"
                     />
                   </div>
                 </div>
               )}
 
-              {/* Document Definition Selection */}
               <div>
-                <label className="block text-slate-700 font-semibold mb-2">
-                  Attach Document Definitions *
+                <label className="block text-slate-700 font-semibold mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  placeholder="Explain why this document is required..."
+                  value={newRuleDesc}
+                  onChange={(e) => setNewRuleDesc(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Linked Document Definitions Selection */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Attached Document Definitions *
+                  {newRuleReqType === 'INDIVIDUAL' && (
+                    <span className="text-amber-800 text-[10px] ml-1.5 font-normal">
+                      (Select exactly 1 for Individual rules)
+                    </span>
+                  )}
                 </label>
-                <div className="space-y-2 max-h-48 overflow-y-auto p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  {definitions
-                    .filter(
-                      (d) =>
-                        d.active &&
-                        (newRuleCustomerType === 'BOTH' ||
-                          d.customer_type === 'BOTH' ||
-                          d.customer_type === newRuleCustomerType)
-                    )
-                    .map((def) => {
+                <div className="border border-slate-200 rounded-xl p-3 max-h-44 overflow-y-auto space-y-1.5 bg-slate-50/50">
+                  {definitions.length === 0 ? (
+                    <p className="text-slate-400 italic">No document definitions exist. Create definitions first.</p>
+                  ) : (
+                    definitions.map((def) => {
                       const isChecked = selectedDefIds.includes(def.id);
                       return (
                         <label
                           key={def.id}
-                          className="flex items-center gap-2 text-slate-800 cursor-pointer hover:text-blue-700"
+                          className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                            isChecked
+                              ? 'bg-blue-50 border-blue-200 text-blue-900 font-semibold'
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                          }`}
                         >
                           <input
                             type={newRuleReqType === 'INDIVIDUAL' ? 'radio' : 'checkbox'}
-                            name="rule_definitions"
+                            name="document_defs"
                             checked={isChecked}
                             onChange={(e) => {
                               if (newRuleReqType === 'INDIVIDUAL') {
                                 setSelectedDefIds([def.id]);
                               } else {
                                 if (e.target.checked) {
-                                  setSelectedDefIds((prev) => [...prev, def.id]);
+                                  setSelectedDefIds([...selectedDefIds, def.id]);
                                 } else {
-                                  setSelectedDefIds((prev) => prev.filter((id) => id !== def.id));
+                                  setSelectedDefIds(selectedDefIds.filter((id) => id !== def.id));
                                 }
                               }
                             }}
                             className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                           />
-                          <span className="font-mono text-blue-700 text-[11px] font-bold">{def.code}</span>
-                          <span className="text-slate-700">— {def.name}</span>
+                          <div className="flex items-center justify-between w-full">
+                            <span>{def.name}</span>
+                            <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                              {def.code}
+                            </span>
+                          </div>
                         </label>
                       );
-                    })}
+                    })
+                  )}
                 </div>
               </div>
 
@@ -607,6 +918,257 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT RULE MODAL */}
+      {editingRule && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-blue-600" />
+                <span>Edit Requirement Rule</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingRule(null)}
+                className="text-slate-400 hover:text-slate-700 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600" />
+              <span>Note: Changes made will apply to future entries and not past data.</span>
+            </div>
+
+            <form onSubmit={handleUpdateRule} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Rule Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editRuleName}
+                  onChange={(e) => setEditRuleName(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Customer Type *</label>
+                  <select
+                    value={editRuleCustomerType}
+                    onChange={(e) => setEditRuleCustomerType(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="B2C">B2C (Residential)</option>
+                    <option value="B2B">B2B (Commercial)</option>
+                    <option value="BOTH">BOTH (All Projects)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Requirement Type *</label>
+                  <select
+                    value={editRuleReqType}
+                    onChange={(e) => setEditRuleReqType(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="INDIVIDUAL">INDIVIDUAL (Single specific document)</option>
+                    <option value="ALL_REQUIRED">ALL_REQUIRED (Every linked document must be uploaded)</option>
+                    <option value="ANY_ONE_REQUIRED">ANY_ONE_REQUIRED (Any one linked document satisfies rule)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Condition Gate *</label>
+                  <select
+                    value={editRuleCondType}
+                    onChange={(e) => setEditRuleCondType(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="ALWAYS">ALWAYS (Mandatory for all)</option>
+                    <option value="IF_LOAN_REQUIRED">IF_LOAN_REQUIRED (Only when Solar Loan is YES)</option>
+                    <option value="IF_CREDIT_EXTENDED">IF_CREDIT_EXTENDED (Only when Credit is YES)</option>
+                    <option value="CUSTOM_FIELD_EQUALS">CUSTOM_FIELD_EQUALS (Dynamic match)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Display Order</label>
+                  <input
+                    type="number"
+                    value={editRuleOrder}
+                    onChange={(e) => setEditRuleOrder(parseInt(e.target.value, 10) || 0)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Status</label>
+                  <select
+                    value={editRuleActive ? 'true' : 'false'}
+                    onChange={(e) => setEditRuleActive(e.target.value === 'true')}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="true">ACTIVE</option>
+                    <option value="false">INACTIVE</option>
+                  </select>
+                </div>
+              </div>
+
+              {editRuleCondType === 'CUSTOM_FIELD_EQUALS' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Custom Field Key *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. meter_phase"
+                      value={editRuleFieldKey}
+                      onChange={(e) => setEditRuleFieldKey(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Expected Value *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Three Phase"
+                      value={editRuleExpectedVal}
+                      onChange={(e) => setNewRuleExpectedVal(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  value={editRuleDesc}
+                  onChange={(e) => setEditRuleDesc(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Attached Document Definitions *
+                  {editRuleReqType === 'INDIVIDUAL' && (
+                    <span className="text-amber-800 text-[10px] ml-1.5 font-normal">
+                      (Select exactly 1 for Individual rules)
+                    </span>
+                  )}
+                </label>
+                <div className="border border-slate-200 rounded-xl p-3 max-h-44 overflow-y-auto space-y-1.5 bg-slate-50/50">
+                  {definitions.map((def) => {
+                    const isChecked = editSelectedDefIds.includes(def.id);
+                    return (
+                      <label
+                        key={def.id}
+                        className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                          isChecked
+                            ? 'bg-blue-50 border-blue-200 text-blue-900 font-semibold'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type={editRuleReqType === 'INDIVIDUAL' ? 'radio' : 'checkbox'}
+                          name="edit_document_defs"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (editRuleReqType === 'INDIVIDUAL') {
+                              setEditSelectedDefIds([def.id]);
+                            } else {
+                              if (e.target.checked) {
+                                setEditSelectedDefIds([...editSelectedDefIds, def.id]);
+                              } else {
+                                setEditSelectedDefIds(editSelectedDefIds.filter((id) => id !== def.id));
+                              }
+                            }
+                          }}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div className="flex items-center justify-between w-full">
+                          <span>{def.name}</span>
+                          <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                            {def.code}
+                          </span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingRule(null)}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE RULE CONFIRMATION MODAL */}
+      {deletingRule && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 flex-shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Delete Requirement Rule</h3>
+                <p className="text-xs text-slate-500">This action applies to future entries and will not alter past data.</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs">
+              <div className="font-semibold text-slate-800">{deletingRule.rule_name}</div>
+              <div className="text-[11px] text-slate-500">
+                Customer Type: <span className="font-semibold text-slate-700">{deletingRule.customer_type}</span> | Type:{' '}
+                <span className="font-semibold text-slate-700">{deletingRule.requirement_type}</span>
+              </div>
+              <p className="text-[11px] text-amber-700 pt-1">
+                ✓ Future leads will not be evaluated against this rule. Past qualified leads maintain their historical checklist.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeletingRule(null)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold rounded-xl text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteRule}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-xs transition-colors"
+              >
+                Delete Rule
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -696,6 +1258,156 @@ export const DocumentMasterSettings: React.FC<{ currentUser?: User }> = ({ curre
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT DEFINITION MODAL */}
+      {editingDef && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-blue-600" />
+                <span>Edit Document Definition</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingDef(null)}
+                className="text-slate-400 hover:text-slate-700 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600" />
+              <span>Note: Changes made will apply to future entries and not past data.</span>
+            </div>
+
+            <form onSubmit={handleUpdateDefinition} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Unique Document Code *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editDefCode}
+                  onChange={(e) => setEditDefCode(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Document Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editDefName}
+                  onChange={(e) => setEditDefName(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Customer Type *</label>
+                  <select
+                    value={editDefCustomerType}
+                    onChange={(e) => setEditDefCustomerType(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="B2C">B2C</option>
+                    <option value="B2B">B2B</option>
+                    <option value="BOTH">BOTH</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Status</label>
+                  <select
+                    value={editDefActive ? 'true' : 'false'}
+                    onChange={(e) => setEditDefActive(e.target.value === 'true')}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="true">ACTIVE</option>
+                    <option value="false">INACTIVE</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  value={editDefDesc}
+                  onChange={(e) => setEditDefDesc(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingDef(null)}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE DEFINITION CONFIRMATION MODAL */}
+      {deletingDef && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 flex-shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Delete Document Definition</h3>
+                <p className="text-xs text-slate-500">This action applies to future entries and will not alter past data.</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-xs">
+              <div className="font-semibold text-slate-800">{deletingDef.name}</div>
+              <div className="text-[11px] text-slate-500">
+                Code: <code className="font-mono text-blue-700 font-bold">{deletingDef.code}</code> | Customer Type:{' '}
+                <span className="font-semibold text-slate-700">{deletingDef.customer_type}</span>
+              </div>
+              <p className="text-[11px] text-amber-700 pt-1">
+                ✓ Future rules and lead upload checklists will no longer use this definition. Historical uploaded documents in past projects remain completely preserved.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeletingDef(null)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold rounded-xl text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteDefinition}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-xs transition-colors"
+              >
+                Delete Definition
+              </button>
+            </div>
           </div>
         </div>
       )}

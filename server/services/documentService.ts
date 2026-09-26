@@ -44,7 +44,7 @@ export async function evaluateLeadDocuments(
   // 3. Fetch all active requirement rules applicable to this lead's customer type
   const rulesRes = await db.query(
     `SELECT * FROM document_requirement_rules 
-     WHERE active = true AND (customer_type = $1 OR customer_type = 'BOTH')
+     WHERE active = true AND deleted_at IS NULL AND (customer_type = $1 OR customer_type = 'BOTH')
      ORDER BY display_order ASC, created_at ASC`,
     [lead.customer_type]
   );
@@ -98,12 +98,12 @@ export async function evaluateLeadDocuments(
       conditionExplanation = `Applies when ${rule.condition_field_key} equals "${rule.condition_expected_value}"`;
     }
 
-    // Fetch rule items
+    // Fetch rule items (only consider active document definitions from Master Settings)
     const itemsRes = await db.query(
-      `SELECT dri.*, dd.code as document_code, dd.name as document_name
+      `SELECT dri.*, dd.code as document_code, dd.name as document_name, dd.active as definition_active
        FROM document_rule_items dri
        JOIN document_definitions dd ON dri.document_definition_id = dd.id
-       WHERE dri.rule_id = $1
+       WHERE dri.rule_id = $1 AND dd.active = true AND dd.deleted_at IS NULL
        ORDER BY dri.created_at ASC`,
       [rule.id]
     );
@@ -118,6 +118,23 @@ export async function evaluateLeadDocuments(
         uploaded_documents: docs,
       };
     });
+
+    // If no active document definitions exist for this rule, the rule has no active requirements
+    if (requiredItems.length === 0) {
+      evaluatedRules.push({
+        rule_id: rule.id,
+        rule_name: rule.rule_name,
+        description: rule.description,
+        requirement_type: rule.requirement_type,
+        condition_type: rule.condition_type,
+        applies: false,
+        condition_explanation: 'All document definitions for this rule are inactive in Master Settings',
+        is_satisfied: true,
+        required_items: [],
+        missing_item_names: [],
+      });
+      continue;
+    }
 
     if (!applies) {
       evaluatedRules.push({
@@ -177,13 +194,14 @@ export async function evaluateLeadDocuments(
   }
 
   // Gate evaluation:
-  // Gate is satisfied if all applicable rules are satisfied.
-  // If there are applicable rules (> 0), all must be satisfied.
-  const isGateSatisfied = totalApplicable > 0 && satisfiedCount === totalApplicable;
+  // Gate is satisfied if all applicable rules are satisfied (or if there are no applicable active rules)
+  const isGateSatisfied = totalApplicable === 0 || satisfiedCount === totalApplicable;
 
   const isCompletedHandoff =
     lead.current_team === 'REGISTRATION_1' ||
     lead.current_team === 'REGISTRATION_TEAM' ||
+    lead.current_team === 'ACCOUNTS_PLACEHOLDER' ||
+    lead.current_team === 'ACCOUNTS' ||
     lead.documentation_status === 'COMPLETED';
 
   const canUpload =
@@ -194,9 +212,13 @@ export async function evaluateLeadDocuments(
 
   let stageMessage = 'In ECP Documentation';
   if (isCompletedHandoff) {
-    stageMessage = 'Documentation Complete — Handed off to Registration 1';
+    stageMessage = lead.customer_type === 'B2B'
+      ? 'Documentation Complete — Handed off to Accounts'
+      : 'Documentation Complete — Handed off to Registration 1';
   } else if (lead.status !== 'QUALIFIED' && lead.documentation_status !== 'PENDING') {
     stageMessage = 'Pre-Qualification (Documentation unlocks upon YES)';
+  } else if (totalApplicable === 0) {
+    stageMessage = 'No active document requirements — Ready for handoff';
   } else if (isGateSatisfied) {
     stageMessage = 'All document requirements satisfied';
   } else {
@@ -219,7 +241,9 @@ export async function evaluateLeadDocuments(
 
 /**
  * Transactional Gate Evaluation & Auto-Handoff Engine
- * When all required documents are satisfied, automatically hands off the lead to REGISTRATION_1.
+ * When all required documents are satisfied (or none required), automatically hands off the lead:
+ * - B2C leads -> REGISTRATION_1
+ * - B2B leads -> ACCOUNTS_PLACEHOLDER
  * Concurrency protected: single execution guaranteed via atomic UPDATE.
  */
 export async function checkAndPerformHandoff(
@@ -230,26 +254,51 @@ export async function checkAndPerformHandoff(
 ): Promise<{ handed_off: boolean; checklist: LeadDocumentChecklist }> {
   const db = txClient || (await getDB());
 
+  // Fetch lead to know customer_type
+  const leadRes = await db.query(
+    'SELECT id, customer_type, current_team, status FROM leads WHERE id = $1',
+    [leadId]
+  );
+  if (leadRes.rows.length === 0) {
+    throw new Error('Lead not found for handoff check');
+  }
+  const lead = leadRes.rows[0];
+
   const checklist = await evaluateLeadDocuments(leadId, db);
 
   // If gate is satisfied and lead is currently in LEAD team and in documentation stage:
   if (checklist.is_gate_satisfied) {
-    // Atomically transition from LEAD team to REGISTRATION_1
+    const nextTeam = lead.customer_type === 'B2B' ? 'ACCOUNTS_PLACEHOLDER' : 'REGISTRATION_1';
+    const nextStatus = lead.customer_type === 'B2B' ? 'QUALIFIED' : 'DOCUMENTATION_COMPLETE';
+    const nextTeamLabel = lead.customer_type === 'B2B' ? 'Accounts' : 'Registration 1';
+    const nextDocStatus = checklist.total_applicable_rules === 0 ? 'NOT_APPLICABLE' : 'COMPLETED';
+    const isActionRequired = nextTeam === 'REGISTRATION_1';
+
+    // Atomically transition from LEAD team to next team
     const updateRes = await db.query(
       `UPDATE leads 
-       SET current_team = 'REGISTRATION_1',
-           documentation_status = 'COMPLETED',
-           status = 'DOCUMENTATION_COMPLETE',
-           action_required = false,
+       SET current_team = $1,
+           documentation_status = $2,
+           status = $3,
+           action_required = $4,
            updated_at = NOW()
-       WHERE id = $1 
+       WHERE id = $5 
          AND current_team = 'LEAD' 
          AND (status = 'QUALIFIED' OR documentation_status = 'PENDING')
        RETURNING *`,
-      [leadId]
+      [nextTeam, nextDocStatus, nextStatus, isActionRequired, leadId]
     );
 
     if (updateRes.rows.length === 1) {
+      if (nextTeam === 'REGISTRATION_1') {
+        try {
+          const { RegistrationService } = await import('./registrationService.ts');
+          await RegistrationService.ensureTasksForLead(leadId);
+        } catch (e) {
+          console.warn('Failed to initialize registration tasks:', e);
+        }
+      }
+
       // Record immutable workflow history
       await recordWorkflowHistory(db, {
         leadId,
@@ -257,12 +306,12 @@ export async function checkAndPerformHandoff(
         actorName,
         eventType: 'DOCUMENTATION_COMPLETED',
         previousState: 'QUALIFIED / LEAD_TEAM',
-        newState: 'DOCUMENTATION_COMPLETE / REGISTRATION_1',
-        remarks: 'All applicable ECP document requirements satisfied. Lead automatically handed off to Registration 1.',
+        newState: `${nextStatus} / ${nextTeam}`,
+        remarks: `All applicable document requirements satisfied. Lead automatically handed off to ${nextTeamLabel}.`,
         metadata: {
           total_rules_satisfied: checklist.satisfied_rules_count,
           uploaded_documents_count: checklist.uploaded_documents.length,
-          handed_off_to: 'REGISTRATION_1',
+          handed_off_to: nextTeam,
         },
       });
 

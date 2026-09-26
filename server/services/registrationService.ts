@@ -1,13 +1,13 @@
 import crypto from 'crypto';
-import { getDB } from '../db/index.js';
-import {
+import { getDB } from '../db/index.ts';
+import type {
   RegistrationLeadItem,
   RegistrationMetrics,
   RegistrationStage,
   RegistrationTask,
   RegistrationTaskStatus,
   User,
-} from '../../shared/types.js';
+} from '../../shared/types.ts';
 
 interface TaskTemplate {
   stage: RegistrationStage;
@@ -736,6 +736,7 @@ export class RegistrationService {
         total_project_value: Number(lead.total_project_value) || 0,
         stage: currentStage,
         current_team: lead.current_team,
+        dispatch_status: lead.dispatch_status,
         assigned_installer_id: lead.assigned_installer_id || null,
         assigned_installer_name: lead.assigned_installer_name || null,
         financing_required: financingRequired,

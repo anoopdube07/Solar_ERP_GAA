@@ -55,6 +55,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         return 'Accounts Team';
       case 'DISPATCH':
         return 'Dispatch Team';
+      case 'SERVICE':
+        return 'After-Sales & Service';
       default:
         return role;
     }
@@ -68,6 +70,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     if (role === 'REGISTRATION') return 'RG';
     if (role === 'ACCOUNTS') return 'AC';
     if (role === 'DISPATCH') return 'DP';
+    if (role === 'SERVICE') return 'SV';
     const parts = name.split(' ');
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -179,6 +182,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                     { u: 'reg1', role: 'REGISTRATION', label: 'Registration Team' },
                     { u: 'accounts', role: 'ACCOUNTS', label: 'Accounts Team (Receipts & Follow-ups)' },
                     { u: 'dispatch', role: 'DISPATCH', label: 'Dispatch Team (Logistics & Shipments)' },
+                    { u: 'service1', role: 'SERVICE', label: 'After-Sales & Service Desk' },
                   ].map((item) => (
                     <button
                       key={item.u}
